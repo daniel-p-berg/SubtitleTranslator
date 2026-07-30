@@ -2,19 +2,24 @@
 
 from __future__ import annotations
 
+import json
 import os
 import re
+import socket
 import time
 from pathlib import Path
-from typing import Callable
-
-from openai import OpenAI
+from typing import Any, Callable
+from urllib.error import HTTPError, URLError
+from urllib.parse import quote
+from urllib.request import Request, urlopen
 
 import app_paths
 import chunker
 import languages
 
 
+_API_BASE_URL = "https://api.openai.com/v1"
+_REQUEST_TIMEOUT_SECONDS = 240
 _MAX_RETRIES = 3
 _RETRY_DELAY_SECONDS = 5
 _MAX_OUTPUT_TOKENS = 8192
@@ -31,11 +36,20 @@ class TranslationFormatError(RuntimeError):
     """Raised when a model response changes SRT structure or timestamps."""
 
 
+class OpenAIRequestError(RuntimeError):
+    """Raised when the OpenAI HTTPS API rejects or cannot complete a request."""
+
+
 def test_api_key(api_key: str, model: str = _DEFAULT_MODEL) -> None:
     """Validate OpenAI access without submitting subtitle content."""
     if not api_key.strip():
         raise ValueError("An OpenAI API key is required.")
-    OpenAI(api_key=api_key.strip()).models.retrieve(model)
+    _request_json(
+        "GET",
+        f"/models/{quote(model, safe='')}",
+        api_key.strip(),
+        timeout=30,
+    )
 
 
 def translate_srt(
@@ -66,7 +80,6 @@ def translate_srt(
         target.code,
         template_override=prompt_template,
     )
-    client = OpenAI(api_key=api_key.strip())
     chunks = chunker.chunk_srt(str(path))
     print(f"Prepared {len(chunks)} translation chunk(s).")
     print(
@@ -80,7 +93,7 @@ def translate_srt(
             progress_callback(index, len(chunks))
         translated_chunks.append(
             _translate_chunk(
-                client,
+                api_key.strip(),
                 source_chunk,
                 prompt,
                 model,
@@ -123,7 +136,7 @@ def save_translated_srt(
 
 
 def _translate_chunk(
-    client: OpenAI,
+    api_key: str,
     source_chunk: str,
     prompt: str,
     model: str,
@@ -145,8 +158,14 @@ def _translate_chunk(
             }
             if reasoning_effort:
                 request["reasoning"] = {"effort": reasoning_effort}
-            response = client.responses.create(**request)
-            translated = _strip_markdown_fence(response.output_text)
+            request["store"] = False
+            response = _request_json(
+                "POST",
+                "/responses",
+                api_key,
+                body=request,
+            )
+            translated = _strip_markdown_fence(_extract_output_text(response))
             _validate_srt_structure(source_chunk, translated)
             return translated
         except Exception as exc:  # noqa: BLE001
@@ -167,6 +186,99 @@ def _translate_chunk(
     raise RuntimeError(
         f"Failed to translate chunk {chunk_number} after {_MAX_RETRIES} attempts."
     ) from last_error
+
+
+def _request_json(
+    method: str,
+    path: str,
+    api_key: str,
+    *,
+    body: dict[str, object] | None = None,
+    timeout: int = _REQUEST_TIMEOUT_SECONDS,
+) -> dict[str, Any]:
+    """Send one authenticated JSON request without persisting credentials."""
+    payload = (
+        json.dumps(body, ensure_ascii=False).encode("utf-8")
+        if body is not None
+        else None
+    )
+    request = Request(
+        f"{_API_BASE_URL}{path}",
+        data=payload,
+        method=method,
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+            "User-Agent": "SubtitleTranslator/0.9",
+        },
+    )
+    try:
+        with urlopen(request, timeout=timeout) as response:
+            raw = response.read()
+    except HTTPError as exc:
+        raw_error = exc.read()
+        message = _api_error_message(raw_error) or str(exc.reason)
+        message = message.replace(api_key, "[redacted]")
+        raise OpenAIRequestError(
+            f"OpenAI request failed ({exc.code}): {message}"
+        ) from exc
+    except (URLError, TimeoutError, socket.timeout) as exc:
+        reason = getattr(exc, "reason", exc)
+        raise OpenAIRequestError(
+            f"Could not reach OpenAI: {reason}"
+        ) from exc
+
+    try:
+        decoded = json.loads(raw.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise OpenAIRequestError("OpenAI returned an invalid JSON response.") from exc
+    if not isinstance(decoded, dict):
+        raise OpenAIRequestError("OpenAI returned an unexpected response.")
+    return decoded
+
+
+def _extract_output_text(response: dict[str, Any]) -> str:
+    """Collect text parts from a completed Responses API payload."""
+    if response.get("status") not in {None, "completed"}:
+        error = response.get("error")
+        if isinstance(error, dict):
+            message = str(error.get("message") or "The response did not complete.")
+        else:
+            message = "The response did not complete."
+        raise OpenAIRequestError(message)
+
+    texts: list[str] = []
+    output = response.get("output")
+    if isinstance(output, list):
+        for item in output:
+            if not isinstance(item, dict) or item.get("type") != "message":
+                continue
+            content = item.get("content")
+            if not isinstance(content, list):
+                continue
+            for part in content:
+                if not isinstance(part, dict) or part.get("type") != "output_text":
+                    continue
+                text = part.get("text")
+                if isinstance(text, str) and text:
+                    texts.append(text)
+    if not texts:
+        raise OpenAIRequestError("OpenAI returned no translated subtitle text.")
+    return "\n".join(texts)
+
+
+def _api_error_message(raw: bytes) -> str:
+    try:
+        payload = json.loads(raw.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        return ""
+    if not isinstance(payload, dict):
+        return ""
+    error = payload.get("error")
+    if not isinstance(error, dict):
+        return ""
+    message = error.get("message")
+    return message if isinstance(message, str) else ""
 
 
 def _validate_srt_structure(

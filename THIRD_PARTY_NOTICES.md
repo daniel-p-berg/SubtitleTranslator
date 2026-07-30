@@ -32,7 +32,6 @@ included in `licenses/PYTHON-LICENSE.txt`.
 
 Direct runtime dependencies include:
 
-- OpenAI Python library, Apache License 2.0
 - keyring, MIT License
 - Send2Trash, BSD License
 

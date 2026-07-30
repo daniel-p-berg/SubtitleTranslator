@@ -259,16 +259,39 @@ class ApiAndTranslationTests(unittest.TestCase):
     def test_translation_composes_source_and_target_prompt(self) -> None:
         captured: dict = {}
 
-        class Responses:
-            def create(self, **request: object) -> SimpleNamespace:
-                captured.update(request)
-                return SimpleNamespace(output_text=TRANSLATED_SRT)
+        def fake_request(
+            _method: str,
+            _path: str,
+            _key: str,
+            *,
+            body: dict[str, object] | None = None,
+            timeout: int = 240,
+        ) -> dict:
+            del timeout
+            captured.update(body or {})
+            return {
+                "status": "completed",
+                "output": [
+                    {
+                        "type": "message",
+                        "content": [
+                            {
+                                "type": "output_text",
+                                "text": TRANSLATED_SRT,
+                            }
+                        ],
+                    }
+                ],
+            }
 
-        fake_client = SimpleNamespace(responses=Responses())
         with tempfile.TemporaryDirectory() as temporary:
             source = Path(temporary) / "source.srt"
             source.write_text(SRT, encoding="utf-8")
-            with mock.patch.object(translator, "OpenAI", return_value=fake_client):
+            with mock.patch.object(
+                translator,
+                "_request_json",
+                side_effect=fake_request,
+            ):
                 result = translator.translate_srt(
                     str(source),
                     "memory-only-key",
@@ -278,6 +301,7 @@ class ApiAndTranslationTests(unittest.TestCase):
         self.assertIn("Korean", captured["instructions"])
         self.assertIn("Spanish", captured["instructions"])
         self.assertNotIn("memory-only-key", repr(captured))
+        self.assertFalse(captured["store"])
         self.assertIn("Linea traducida", result)
 
     def test_translation_rejects_changed_timestamps(self) -> None:

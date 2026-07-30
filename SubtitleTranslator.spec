@@ -2,9 +2,6 @@
 
 import os
 
-from PyInstaller.utils.hooks import collect_all
-
-
 target_arch = os.environ.get("TARGET_ARCH") or None
 
 datas = [
@@ -32,11 +29,6 @@ hiddenimports = [
     "translator",
     "ui",
 ]
-
-openai_data = collect_all("openai")
-datas += openai_data[0]
-binaries += openai_data[1]
-hiddenimports += openai_data[2]
 
 a = Analysis(
     ["main.py"],

@@ -62,6 +62,10 @@ When translation is requested, OpenAI receives:
 - The composed translation instructions.
 - The selected model and reasoning setting.
 
+Translation requests set `store` to `false` so the Responses API is not asked
+to retain response state. This does not replace OpenAI's own service, abuse
+monitoring, or account data policies.
+
 Media audio, video, unrelated files, local folder listings, and OpenSubtitles
 credentials are not sent to OpenAI.
 
