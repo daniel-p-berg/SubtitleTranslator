@@ -117,8 +117,10 @@ QT_QPA_PLATFORM=offscreen \
 
 blue "Creating release archives..."
 mkdir -p "$ARTIFACT_DIR"
-ZIP_PATH="$ARTIFACT_DIR/${APP_NAME}-${VERSION}-macOS-${ARTIFACT_ARCH}.zip"
-DMG_PATH="$ARTIFACT_DIR/${APP_NAME}-${VERSION}-macOS-${ARTIFACT_ARCH}.dmg"
+ZIP_NAME="${APP_NAME}-${VERSION}-macOS-${ARTIFACT_ARCH}.zip"
+DMG_NAME="${APP_NAME}-${VERSION}-macOS-${ARTIFACT_ARCH}.dmg"
+ZIP_PATH="$ARTIFACT_DIR/$ZIP_NAME"
+DMG_PATH="$ARTIFACT_DIR/$DMG_NAME"
 rm -f "$ZIP_PATH" "$DMG_PATH"
 ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" "$ZIP_PATH"
 hdiutil create \
@@ -128,8 +130,10 @@ hdiutil create \
     -format UDZO \
     "$DMG_PATH" >/dev/null
 
-shasum -a 256 "$ZIP_PATH" "$DMG_PATH" \
-    > "$ARTIFACT_DIR/SHA256SUMS-${ARTIFACT_ARCH}.txt"
+(
+    cd "$ARTIFACT_DIR"
+    shasum -a 256 "$ZIP_NAME" "$DMG_NAME"
+) > "$ARTIFACT_DIR/SHA256SUMS-${ARTIFACT_ARCH}.txt"
 
 green "Built:"
 green "  $ZIP_PATH"
