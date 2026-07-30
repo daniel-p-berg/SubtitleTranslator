@@ -1,0 +1,95 @@
+# Privacy
+
+SubtitleTranslator is designed without a developer-operated data service.
+
+## Data the Developer Receives
+
+None. The app contains no telemetry, analytics, advertising identifiers, crash
+uploader, account system, remote logging, or developer-controlled API relay.
+
+Opening the GitHub project or downloading a GitHub release is subject to
+GitHub's own service policies. The running application does not automatically
+contact GitHub.
+
+## API Credentials
+
+OpenAI and OpenSubtitles API keys are stored as generic passwords in macOS
+Keychain under the service name:
+
+```text
+com.danielpberg.SubtitleTranslator
+```
+
+Keys are held in memory only while making a direct request to the selected
+provider. They are not written to the settings file, logs, job summaries, media
+files, subtitle files, or diagnostics.
+
+Legacy plaintext credentials are migrated to Keychain before the old credential
+fields are removed.
+
+## Local Data
+
+Non-secret preferences are stored at:
+
+```text
+~/Library/Application Support/SubtitleTranslator/settings.json
+```
+
+Intermediate subtitles, timing caches, and local job summaries default to:
+
+```text
+~/Library/Application Support/SubtitleTranslator/Workspace/
+```
+
+These locations are user-private by filesystem permissions. The workspace is
+configurable and can be cleaned after successful processing.
+
+Media files are read from locations selected by the user. The app does not
+silently enumerate unrelated folders. Originals are not changed unless the
+user explicitly enables **Move original to Trash after verified merge** for a
+specific job.
+
+## Network Requests
+
+SubtitleTranslator talks directly to two optional third-party services:
+
+### OpenAI
+
+When translation is requested, OpenAI receives:
+
+- The selected OpenAI API key in the authorization request.
+- The source subtitle chunks.
+- The composed translation instructions.
+- The selected model and reasoning setting.
+
+Media audio, video, unrelated files, local folder listings, and OpenSubtitles
+credentials are not sent to OpenAI.
+
+### OpenSubtitles
+
+When subtitle search or download is requested, OpenSubtitles receives:
+
+- The OpenSubtitles API key.
+- A media hash and/or title query.
+- The selected target language.
+- A selected subtitle file identifier for download.
+
+Media contents, subtitle text sent to OpenAI, local folder listings, and the
+OpenAI key are not sent to OpenSubtitles.
+
+Data retained by OpenAI and OpenSubtitles is governed by each provider's terms
+and account settings.
+
+## Logs
+
+The app's visible details panel contains processing stages and error messages.
+It does not intentionally log API keys, authorization headers, or subtitle
+dialogue. Local job summaries use media filenames rather than full source paths.
+
+Do not paste API keys into GitHub issues, screenshots, or shared diagnostics.
+
+## Verification
+
+The source is public so users can inspect the network endpoints, Keychain
+storage, settings schema, and build workflow. Security reports should follow
+[SECURITY.md](SECURITY.md).

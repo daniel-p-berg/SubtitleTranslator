@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: macos-15
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          architecture: arm64
+          cache: pip
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements-dev.txt
+
+      - name: Compile source
+        run: |
+          python -m py_compile \
+            app_paths.py audio_activity.py chunker.py dependencies.py \
+            extractor.py languages.py main.py media_launcher.py muxer.py \
+            open_subtitles.py pipeline.py settings.py subtitle_sync.py \
+            translator.py ui.py
+
+      - name: Run pipeline regressions
+        run: python test_pipeline.py
+
+      - name: Run product tests
+        run: python -m unittest -v test_product.py
+
+      - name: Smoke-test Qt interface
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          python - <<'PY'
+          from PySide6.QtWidgets import QApplication
+          from ui import MainWindow, apply_application_style
+
+          application = QApplication([])
+          apply_application_style(application)
+          MainWindow._show_first_run = lambda self: None
+          MainWindow._migrate_legacy_credentials = lambda self: None
+          window = MainWindow("ci")
+          window.show()
+          application.processEvents()
+          assert window.tabs.count() == 3
+          assert window.target_combo.count() == 30
+          window.close()
+          PY

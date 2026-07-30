@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Private security report
+    url: https://github.com/daniel-p-berg/SubtitleTranslator/security/advisories/new
+    about: Report credential, file-access, or request-data vulnerabilities privately.

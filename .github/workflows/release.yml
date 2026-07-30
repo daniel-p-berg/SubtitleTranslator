@@ -1,0 +1,73 @@
+name: Release macOS Beta
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build universal2
+    runs-on: macos-15
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+
+      - name: Install official universal2 Python
+        env:
+          PYTHON_INSTALLER_SHA256: a909cb655af5db67d5a90b3603437a1d58bec3446d624e4034e278ac62023cc9
+        run: |
+          curl --fail --location --silent --show-error \
+            https://www.python.org/ftp/python/3.13.13/python-3.13.13-macos11.pkg \
+            --output python.pkg
+          echo "${PYTHON_INSTALLER_SHA256}  python.pkg" | shasum -a 256 --check
+          sudo installer -pkg python.pkg -target /
+          file /Library/Frameworks/Python.framework/Versions/3.13/Python
+
+      - name: Build unsigned beta
+        env:
+          VERSION: ${{ github.ref_name }}
+          PYTHON: /Library/Frameworks/Python.framework/Versions/3.13/bin/python3.13
+          TARGET_ARCH: universal2
+          ARTIFACT_ARCH: universal2
+        run: |
+          VERSION="${VERSION#v}"
+          export VERSION
+          bash build.sh
+          file dist/SubtitleTranslator.app/Contents/MacOS/SubtitleTranslator
+
+      - name: Upload release files
+        uses: actions/upload-artifact@v6
+        with:
+          name: SubtitleTranslator-universal2
+          path: release/*
+          if-no-files-found: error
+
+  publish:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v7
+        with:
+          path: release
+          merge-multiple: true
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --title "SubtitleTranslator ${GITHUB_REF_NAME}" \
+            --generate-notes \
+            --prerelease \
+            release/*

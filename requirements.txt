@@ -1,0 +1,4 @@
+keyring>=25.6,<26
+openai>=2.45,<3
+PySide6-Essentials>=6.8,<7
+Send2Trash>=1.8,<2
