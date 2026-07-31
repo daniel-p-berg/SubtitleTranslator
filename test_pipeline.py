@@ -510,9 +510,11 @@ def test_image_subtitle_timings_parse_packets() -> tuple[bool, str]:
         }
 
         original_probe = extractor._probe_subtitle_streams
+        original_check_tool = extractor._check_tool
         original_run = extractor.subprocess.run
         try:
             extractor._probe_subtitle_streams = lambda *_args, **_kwargs: streams
+            extractor._check_tool = lambda *_args, **_kwargs: "ffprobe"
             extractor.subprocess.run = lambda *_args, **_kwargs: SimpleNamespace(
                 returncode=0,
                 stdout=json.dumps(packets),
@@ -521,6 +523,7 @@ def test_image_subtitle_timings_parse_packets() -> tuple[bool, str]:
             result = extractor.extract_image_subtitle_timings(str(video))
         finally:
             extractor._probe_subtitle_streams = original_probe
+            extractor._check_tool = original_check_tool
             extractor.subprocess.run = original_run
 
         if result is None:
@@ -583,9 +586,11 @@ def test_external_image_subtitle_timings_found_in_subfolder() -> tuple[bool, str
         }
 
         original_probe = extractor._probe_subtitle_streams
+        original_check_tool = extractor._check_tool
         original_run = extractor.subprocess.run
         try:
             extractor._probe_subtitle_streams = lambda *_args, **_kwargs: streams
+            extractor._check_tool = lambda *_args, **_kwargs: "ffprobe"
             extractor.subprocess.run = lambda *_args, **_kwargs: SimpleNamespace(
                 returncode=0,
                 stdout=json.dumps(packets),
@@ -594,6 +599,7 @@ def test_external_image_subtitle_timings_found_in_subfolder() -> tuple[bool, str
             result = extractor.find_external_image_subtitle_timings(str(video))
         finally:
             extractor._probe_subtitle_streams = original_probe
+            extractor._check_tool = original_check_tool
             extractor.subprocess.run = original_run
 
         if result is None:
