@@ -9,13 +9,25 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable
 
-from PySide6.QtCore import QLocale, QThread, QTimer, Qt, QUrl, Signal
+from PySide6.QtCore import (
+    QItemSelectionModel,
+    QLocale,
+    QSize,
+    QThread,
+    QTimer,
+    Qt,
+    QUrl,
+    Signal,
+)
 from PySide6.QtGui import (
     QColor,
     QCloseEvent,
     QDesktopServices,
     QDragEnterEvent,
     QDropEvent,
+    QIcon,
+    QPainter,
+    QPixmap,
 )
 from PySide6.QtWidgets import (
     QAbstractItemView,
@@ -24,7 +36,6 @@ from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
     QDialog,
-    QDialogButtonBox,
     QFileDialog,
     QFrame,
     QGridLayout,
@@ -88,6 +99,48 @@ OPEN_SUBTITLES_URL = "https://www.opensubtitles.com/en/consumers"
 MPV_INSTALL_URL = "https://mpv.io/installation/"
 HOMEBREW_INSTALL_URL = "https://docs.brew.sh/Installation"
 PRIVACY_URL = "https://github.com/daniel-p-berg/SubtitleTranslator/blob/main/PRIVACY.md"
+
+
+def _tinted_standard_icon(
+    widget: QWidget,
+    standard_pixmap: QStyle.StandardPixmap,
+    *,
+    color: str = MUTED,
+) -> QIcon:
+    """Return one familiar Qt symbol normalized to the app's palette."""
+    source = widget.style().standardIcon(standard_pixmap).pixmap(QSize(18, 18))
+    if source.isNull():
+        return widget.style().standardIcon(standard_pixmap)
+
+    def tinted(tint: str) -> QPixmap:
+        result = QPixmap(source.size())
+        result.fill(Qt.GlobalColor.transparent)
+        painter = QPainter(result)
+        painter.drawPixmap(0, 0, source)
+        painter.setCompositionMode(
+            QPainter.CompositionMode.CompositionMode_SourceIn
+        )
+        painter.fillRect(result.rect(), QColor(tint))
+        painter.end()
+        return result
+
+    icon = QIcon()
+    icon.addPixmap(tinted(color), QIcon.Mode.Normal, QIcon.State.Off)
+    icon.addPixmap(tinted(color), QIcon.Mode.Active, QIcon.State.Off)
+    icon.addPixmap(tinted("#9b9b96"), QIcon.Mode.Disabled, QIcon.State.Off)
+    return icon
+
+
+def _set_standard_icon(
+    button: QPushButton | QToolButton,
+    standard_pixmap: QStyle.StandardPixmap,
+    *,
+    color: str = MUTED,
+) -> None:
+    button.setIcon(
+        _tinted_standard_icon(button, standard_pixmap, color=color)
+    )
+    button.setIconSize(QSize(16, 16))
 
 
 def _localized_pipeline_stage(stage: str) -> str:
@@ -209,6 +262,7 @@ def apply_application_style(application: QApplication) -> None:
         }}
         QTabWidget::pane {{
             border: 0;
+            border-top: 1px solid {BORDER};
             background: {BG};
             top: -1px;
         }}
@@ -348,6 +402,19 @@ def apply_application_style(application: QApplication) -> None:
             background: {DANGER_SOFT};
             border-color: #d9aaa5;
         }}
+        QPushButton#warningButton {{
+            color: {WARM};
+            border-color: #c8aa64;
+        }}
+        QPushButton#warningButton:hover {{
+            background: {WARM_SOFT};
+            border-color: {WARM};
+        }}
+        QPushButton#warningButton:pressed {{
+            background: {WARM};
+            color: {PANEL};
+            border-color: {WARM};
+        }}
         QToolButton#segmentButton {{
             background: {PANEL};
             border: 1px solid #bcbcb6;
@@ -387,6 +454,12 @@ def apply_application_style(application: QApplication) -> None:
             color: {TEXT};
             background: transparent;
             border-color: transparent;
+        }}
+        QToolButton#iconButton {{
+            min-width: 18px;
+            max-width: 18px;
+            min-height: 18px;
+            padding: 8px;
         }}
         QProgressBar {{
             background: {PANEL};
@@ -521,13 +594,17 @@ class DropFrame(QFrame):
         self.title = QLabel(tr("Choose a media file"))
         self.title.setObjectName("pageTitle")
         self.title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.title.setTextFormat(Qt.TextFormat.PlainText)
+        self.title.setWordWrap(True)
         self.detail = QLabel(tr("MKV, MP4, MOV, M4V, AVI, WebM, TS, or M2TS"))
         self.detail.setObjectName("mutedLabel")
         self.detail.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.detail.setTextFormat(Qt.TextFormat.PlainText)
         self.detail.setWordWrap(True)
         self.choose = QPushButton(tr("Open File"))
-        self.choose.setIcon(
-            self.style().standardIcon(QStyle.StandardPixmap.SP_DialogOpenButton)
+        _set_standard_icon(
+            self.choose,
+            QStyle.StandardPixmap.SP_DialogOpenButton,
         )
         self.choose.setMinimumWidth(120)
         self.choose.clicked.connect(self._choose_file)
@@ -714,16 +791,17 @@ class CandidateDialog(QDialog):
         self.query.setPlaceholderText(tr("Movie or episode title"))
         self.query.setAccessibleName(tr("Movie or episode title"))
         self.search_button = QPushButton(tr("Search"))
-        self.search_button.setIcon(
-            self.style().standardIcon(QStyle.StandardPixmap.SP_BrowserReload)
+        _set_standard_icon(
+            self.search_button,
+            QStyle.StandardPixmap.SP_BrowserReload,
         )
         self.search_button.clicked.connect(self._search)
         self.query.returnPressed.connect(self._search)
         self.cancel_search_button = QToolButton()
-        self.cancel_search_button.setIcon(
-            self.style().standardIcon(
-                QStyle.StandardPixmap.SP_DialogCancelButton
-            )
+        self.cancel_search_button.setObjectName("iconButton")
+        _set_standard_icon(
+            self.cancel_search_button,
+            QStyle.StandardPixmap.SP_DialogCancelButton,
         )
         self.cancel_search_button.setToolTip(tr("Cancel search"))
         self.cancel_search_button.setAccessibleName(tr("Cancel search"))
@@ -789,28 +867,28 @@ class CandidateDialog(QDialog):
             translation_notice.setObjectName("warningLabel")
             layout.addWidget(translation_notice)
 
-        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Cancel)
-        self.use_button = buttons.addButton(
-            tr("Use Selected Subtitle"),
-            QDialogButtonBox.ButtonRole.AcceptRole,
-        )
-        self.translate_button = buttons.addButton(
-            tr("Translate Source Instead"),
-            QDialogButtonBox.ButtonRole.ActionRole,
-        )
+        button_row = QHBoxLayout()
+        button_row.addStretch()
+        cancel_button = QPushButton(tr("Cancel"))
+        cancel_button.setAutoDefault(False)
+        cancel_button.clicked.connect(self.reject)
+        self.translate_button = QPushButton(tr("Translate Source Instead"))
+        self.translate_button.setObjectName("warningButton")
+        self.translate_button.setAutoDefault(False)
         self.translate_button.setVisible(allow_translation)
         self.translate_button.clicked.connect(self._translate)
-        cancel_button = buttons.button(QDialogButtonBox.StandardButton.Cancel)
-        if cancel_button:
-            cancel_button.setText(tr("Cancel"))
+        self.use_button = QPushButton(tr("Use Selected Subtitle"))
         self.use_button.setEnabled(False)
         self.use_button.setObjectName("primaryButton")
+        self.use_button.setAutoDefault(False)
         self.use_button.clicked.connect(self._use_selected)
-        buttons.rejected.connect(self.reject)
         self.table.itemSelectionChanged.connect(
             lambda: self.use_button.setEnabled(bool(self.table.selectedItems()))
         )
-        layout.addWidget(buttons)
+        button_row.addWidget(cancel_button)
+        button_row.addWidget(self.translate_button)
+        button_row.addWidget(self.use_button)
+        layout.addLayout(button_row)
 
         if initial_result:
             self.query.setText(initial_result.query)
@@ -907,7 +985,19 @@ class CandidateDialog(QDialog):
                 + tr("Add an OpenSubtitles API key in Settings.")
             )
         if self._candidates:
-            self.table.selectRow(0)
+            QTimer.singleShot(0, self._select_first_candidate)
+
+    def _select_first_candidate(self) -> None:
+        if self._candidates and self.table.rowCount():
+            index = self.table.model().index(0, 0)
+            selection_model = self.table.selectionModel()
+            if index.isValid() and selection_model:
+                selection_model.select(
+                    index,
+                    QItemSelectionModel.SelectionFlag.ClearAndSelect
+                    | QItemSelectionModel.SelectionFlag.Rows,
+                )
+                self.table.setCurrentIndex(index)
 
     def _search_failed(self, error: Exception) -> None:
         self.search_button.setEnabled(bool(self.api_key))
@@ -1038,8 +1128,9 @@ class DependencySetupDialog(QDialog):
             lambda: QDesktopServices.openUrl(QUrl(HOMEBREW_INSTALL_URL))
         )
         self.check_button = QPushButton(tr("Check Again"))
-        self.check_button.setIcon(
-            self.style().standardIcon(QStyle.StandardPixmap.SP_BrowserReload)
+        _set_standard_icon(
+            self.check_button,
+            QStyle.StandardPixmap.SP_BrowserReload,
         )
         self.check_button.clicked.connect(self._refresh)
         self.install_button = QPushButton(tr("Install Missing Tools"))
@@ -1304,8 +1395,10 @@ class MpvSetupDialog(QDialog):
         self.config_path.setReadOnly(True)
         self.config_path.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
         open_folder = QToolButton()
-        open_folder.setIcon(
-            self.style().standardIcon(QStyle.StandardPixmap.SP_DirOpenIcon)
+        open_folder.setObjectName("iconButton")
+        _set_standard_icon(
+            open_folder,
+            QStyle.StandardPixmap.SP_DirOpenIcon,
         )
         open_folder.setToolTip(tr("Open configuration folder"))
         open_folder.setAccessibleName(tr("Open configuration folder"))
@@ -1598,8 +1691,9 @@ class SetupChecklistDialog(QDialog):
         self.api_settings_button = QPushButton(tr("API Settings"))
         self.api_settings_button.clicked.connect(self._open_api_settings)
         self.refresh_setup_button = QPushButton(tr("Check Again"))
-        self.refresh_setup_button.setIcon(
-            self.style().standardIcon(QStyle.StandardPixmap.SP_BrowserReload)
+        _set_standard_icon(
+            self.refresh_setup_button,
+            QStyle.StandardPixmap.SP_BrowserReload,
         )
         self.refresh_setup_button.clicked.connect(self._refresh)
         self.done_button = QPushButton(tr("Done"))
@@ -1927,12 +2021,16 @@ class MainWindow(QMainWindow):
         header.addWidget(privacy)
         root_layout.addLayout(header)
 
+        rule_stack = QVBoxLayout()
+        rule_stack.setSpacing(2)
+        rule_stack.setContentsMargins(0, 0, 0, 0)
         header_rule = QFrame()
         header_rule.setObjectName("headerRule")
-        root_layout.addWidget(header_rule)
+        rule_stack.addWidget(header_rule)
         header_rule_accent = QFrame()
         header_rule_accent.setObjectName("headerRuleAccent")
-        root_layout.addWidget(header_rule_accent)
+        rule_stack.addWidget(header_rule_accent)
+        root_layout.addLayout(rule_stack)
 
         self.tabs = QTabWidget()
         self.tabs.setDocumentMode(True)
@@ -1950,8 +2048,8 @@ class MainWindow(QMainWindow):
         page = QWidget()
         page.setMinimumHeight(640)
         layout = QVBoxLayout(page)
-        layout.setContentsMargins(0, 12, 0, 0)
-        layout.setSpacing(12)
+        layout.setContentsMargins(0, 10, 0, 0)
+        layout.setSpacing(10)
 
         self.drop_frame = DropFrame()
         self.drop_frame.file_selected.connect(self._select_media)
@@ -2026,16 +2124,19 @@ class MainWindow(QMainWindow):
         sidecar_row.setContentsMargins(12, 8, 8, 8)
         self.sidecar_label = QLabel(tr("Target subtitle: automatic"))
         self.sidecar_label.setObjectName("mutedLabel")
+        self.sidecar_label.setTextFormat(Qt.TextFormat.PlainText)
         choose_sidecar = QPushButton(tr("Choose Subtitle"))
         choose_sidecar.setMinimumHeight(34)
-        choose_sidecar.setIcon(
-            self.style().standardIcon(QStyle.StandardPixmap.SP_FileIcon)
+        _set_standard_icon(
+            choose_sidecar,
+            QStyle.StandardPixmap.SP_FileIcon,
         )
         choose_sidecar.clicked.connect(self._choose_sidecar)
         clear_sidecar = QToolButton()
-        clear_sidecar.setMinimumSize(34, 34)
-        clear_sidecar.setIcon(
-            self.style().standardIcon(QStyle.StandardPixmap.SP_DialogResetButton)
+        clear_sidecar.setObjectName("iconButton")
+        _set_standard_icon(
+            clear_sidecar,
+            QStyle.StandardPixmap.SP_DialogCloseButton,
         )
         clear_sidecar.setToolTip(tr("Clear selected subtitle"))
         clear_sidecar.setAccessibleName(tr("Clear selected subtitle"))
@@ -2075,10 +2176,10 @@ class MainWindow(QMainWindow):
         self.cost_label.setObjectName("mutedLabel")
         self.cancel_button = QPushButton(tr("Cancel"))
         self.cancel_button.setObjectName("dangerButton")
-        self.cancel_button.setIcon(
-            self.style().standardIcon(
-                QStyle.StandardPixmap.SP_DialogCancelButton
-            )
+        _set_standard_icon(
+            self.cancel_button,
+            QStyle.StandardPixmap.SP_DialogCancelButton,
+            color=DANGER,
         )
         self.cancel_button.setVisible(False)
         self.cancel_button.clicked.connect(self._cancel_pipeline)
@@ -2141,15 +2242,18 @@ class MainWindow(QMainWindow):
         result_layout.setContentsMargins(14, 10, 10, 10)
         self.result_label = QLabel("")
         self.result_label.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
+        self.result_label.setTextFormat(Qt.TextFormat.PlainText)
         self.result_label.setWordWrap(True)
         self.play_button = QPushButton(tr("Open in mpv"))
-        self.play_button.setIcon(
-            self.style().standardIcon(QStyle.StandardPixmap.SP_MediaPlay)
+        _set_standard_icon(
+            self.play_button,
+            QStyle.StandardPixmap.SP_MediaPlay,
         )
         self.play_button.clicked.connect(self._play_result)
         self.reveal_button = QPushButton(tr("Show in Finder"))
-        self.reveal_button.setIcon(
-            self.style().standardIcon(QStyle.StandardPixmap.SP_DirOpenIcon)
+        _set_standard_icon(
+            self.reveal_button,
+            QStyle.StandardPixmap.SP_DirOpenIcon,
         )
         self.reveal_button.clicked.connect(self._reveal_result)
         result_layout.addWidget(self.result_label, 1)
@@ -2171,13 +2275,15 @@ class MainWindow(QMainWindow):
         title = QLabel(tr("Recent media"))
         title.setObjectName("pageTitle")
         refresh = QPushButton(tr("Refresh"))
-        refresh.setIcon(
-            self.style().standardIcon(QStyle.StandardPixmap.SP_BrowserReload)
+        _set_standard_icon(
+            refresh,
+            QStyle.StandardPixmap.SP_BrowserReload,
         )
         refresh.clicked.connect(self._refresh_recent)
         add_folder = QPushButton(tr("Add Media Folder"))
-        add_folder.setIcon(
-            self.style().standardIcon(QStyle.StandardPixmap.SP_DirOpenIcon)
+        _set_standard_icon(
+            add_folder,
+            QStyle.StandardPixmap.SP_DirOpenIcon,
         )
         add_folder.clicked.connect(self._add_media_location)
         top.addWidget(title)
@@ -2196,7 +2302,7 @@ class MainWindow(QMainWindow):
         load = QPushButton(tr("Load in Prepare"))
         load.clicked.connect(self._load_recent)
         play = QPushButton(tr("Open in mpv"))
-        play.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_MediaPlay))
+        _set_standard_icon(play, QStyle.StandardPixmap.SP_MediaPlay)
         play.clicked.connect(self._play_recent)
         buttons.addStretch()
         buttons.addWidget(load)
@@ -2312,8 +2418,10 @@ class MainWindow(QMainWindow):
         self.workspace_edit.setAccessibleName(tr("App working folder"))
         self.workspace_edit.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
         workspace_browse = QToolButton()
-        workspace_browse.setIcon(
-            self.style().standardIcon(QStyle.StandardPixmap.SP_DirOpenIcon)
+        workspace_browse.setObjectName("iconButton")
+        _set_standard_icon(
+            workspace_browse,
+            QStyle.StandardPixmap.SP_DirOpenIcon,
         )
         workspace_browse.setToolTip(tr("Choose working folder"))
         workspace_browse.setAccessibleName(tr("Choose working folder"))
@@ -2342,8 +2450,10 @@ class MainWindow(QMainWindow):
             Qt.LayoutDirection.LeftToRight
         )
         output_browse = QToolButton()
-        output_browse.setIcon(
-            self.style().standardIcon(QStyle.StandardPixmap.SP_DirOpenIcon)
+        output_browse.setObjectName("iconButton")
+        _set_standard_icon(
+            output_browse,
+            QStyle.StandardPixmap.SP_DirOpenIcon,
         )
         output_browse.setToolTip(tr("Choose output folder"))
         output_browse.setAccessibleName(tr("Choose output folder"))
@@ -2468,8 +2578,10 @@ class MainWindow(QMainWindow):
         self.mpv_path_edit.setPlaceholderText(tr("Auto-detect mpv"))
         self.mpv_path_edit.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
         mpv_browse = QToolButton()
-        mpv_browse.setIcon(
-            self.style().standardIcon(QStyle.StandardPixmap.SP_DialogOpenButton)
+        mpv_browse.setObjectName("iconButton")
+        _set_standard_icon(
+            mpv_browse,
+            QStyle.StandardPixmap.SP_DialogOpenButton,
         )
         mpv_browse.setToolTip(tr("Choose mpv executable"))
         mpv_browse.setAccessibleName(tr("Choose mpv executable"))

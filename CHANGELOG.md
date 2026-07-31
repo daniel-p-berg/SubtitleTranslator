@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.9.0-beta.13
+
+- Unified native Qt button symbols into one restrained graphite icon treatment
+  and compacted icon-only controls.
+- Tightened the header rules and tab boundary into a more deliberate
+  Macintosh-inspired detail.
+- Kept the primary Prepare action fully visible at the standard window size
+  while preserving access to diagnostics below it.
+- Reordered subtitle-review actions around a trailing primary choice and gave
+  the paid translation alternative a distinct amber treatment.
+- Added safe wrapping and plain-text rendering for user-controlled media and
+  subtitle names.
+
 ## 0.9.0-beta.12
 
 - Redesigned the complete PySide interface around a quiet neutral workspace,
