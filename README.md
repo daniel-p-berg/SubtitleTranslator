@@ -124,6 +124,11 @@ reviewed on July 11, 2026.
    [API consumers page](https://www.opensubtitles.com/en/consumers).
 3. Add it under **Settings > API Connections** and save it to Keychain.
 
+Unsigned beta updates may ask for Keychain permission again because macOS sees
+each rebuilt app as a new accessor. Enter the Mac login password and choose
+**Always Allow** once for each saved API key. The app caches successful access
+for the rest of that launch.
+
 Subtitle availability, rate limits, and download quotas are controlled by
 OpenSubtitles.
 

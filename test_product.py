@@ -329,6 +329,46 @@ class InterfaceLocalizationTests(unittest.TestCase):
 
 
 class PrivacyAndSettingsTests(unittest.TestCase):
+    def test_secret_store_caches_successful_keychain_reads(self) -> None:
+        with (
+            mock.patch.dict(
+                os.environ,
+                {
+                    "OPENAI_API_KEY": "",
+                    "OPEN_SUBTITLES_API_KEY": "",
+                },
+            ),
+            mock.patch.object(
+                settings.keyring,
+                "get_password",
+                return_value="cached-secret",
+            ) as get_password,
+        ):
+            store = settings.SecretStore("test.service")
+            self.assertEqual(store.get(settings.OPENAI_SECRET), "cached-secret")
+            self.assertEqual(store.get(settings.OPENAI_SECRET), "cached-secret")
+
+        get_password.assert_called_once_with(
+            "test.service",
+            settings.OPENAI_SECRET,
+        )
+
+    def test_secret_store_caches_successful_keychain_writes(self) -> None:
+        with (
+            mock.patch.object(settings.keyring, "set_password") as set_password,
+            mock.patch.object(settings.keyring, "get_password") as get_password,
+        ):
+            store = settings.SecretStore("test.service")
+            store.set(settings.OPENAI_SECRET, "new-secret")
+            self.assertEqual(store.get(settings.OPENAI_SECRET), "new-secret")
+
+        set_password.assert_called_once_with(
+            "test.service",
+            settings.OPENAI_SECRET,
+            "new-secret",
+        )
+        get_password.assert_not_called()
+
     def test_settings_never_serialize_api_keys(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             path = Path(temporary) / "settings.json"
@@ -377,6 +417,38 @@ class PrivacyAndSettingsTests(unittest.TestCase):
             self.assertEqual(
                 secret_store.values[settings.OPEN_SUBTITLES_SECRET],
                 "second-secret",
+            )
+
+    def test_legacy_migration_does_not_repeat_completed_credentials(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "legacy.json"
+            path.write_text(
+                json.dumps(
+                    {
+                        settings.OPENAI_SECRET: "first-secret",
+                        settings.OPEN_SUBTITLES_SECRET: "second-secret",
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            class FailingSecrets:
+                def set(self, name: str, value: str) -> None:
+                    if name == settings.OPEN_SUBTITLES_SECRET:
+                        raise settings.SecretStorageError("denied")
+
+            with self.assertRaises(settings.SecretStorageError):
+                settings.migrate_legacy_credentials(FailingSecrets(), path)
+
+            remaining = json.loads(path.read_text(encoding="utf-8"))
+            self.assertNotIn(settings.OPENAI_SECRET, remaining)
+            self.assertEqual(
+                remaining[settings.OPEN_SUBTITLES_SECRET],
+                "second-secret",
+            )
+            self.assertEqual(
+                stat.S_IMODE(path.stat().st_mode),
+                stat.S_IRUSR | stat.S_IWUSR,
             )
 
     def test_default_paths_do_not_claim_a_media_library(self) -> None:

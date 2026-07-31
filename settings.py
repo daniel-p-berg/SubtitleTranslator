@@ -128,6 +128,7 @@ class SecretStore:
 
     def __init__(self, service: str = KEYCHAIN_SERVICE) -> None:
         self.service = service
+        self._cache: dict[str, str] = {}
 
     def get(self, name: str) -> str:
         """Return an environment override or Keychain value."""
@@ -136,13 +137,17 @@ class SecretStore:
             env_value = os.environ.get(env_name, "").strip()
             if env_value:
                 return env_value
+        if name in self._cache:
+            return self._cache[name]
         try:
-            return (keyring.get_password(self.service, name) or "").strip()
+            value = (keyring.get_password(self.service, name) or "").strip()
         except KeyringError as exc:
             raise SecretStorageError(
                 "macOS Keychain could not be read. No credential was copied "
                 "to a settings file."
             ) from exc
+        self._cache[name] = value
+        return value
 
     def set(self, name: str, value: str) -> None:
         """Store or remove one credential without writing it to disk ourselves."""
@@ -159,6 +164,7 @@ class SecretStore:
             raise SecretStorageError(
                 "macOS Keychain rejected the credential. It was not saved."
             ) from exc
+        self._cache[name] = value
 
     def delete(self, name: str) -> None:
         """Remove one credential from Keychain."""
@@ -179,9 +185,9 @@ def migrate_legacy_credentials(
 ) -> bool:
     """Move plaintext credentials from the legacy file into Keychain once.
 
-    The legacy file is only changed after every discovered credential has been
-    stored successfully.  Non-secret legacy preferences are intentionally not
-    imported because their path assumptions do not belong in the public app.
+    Each plaintext credential is removed immediately after it is stored
+    successfully. Non-secret legacy preferences are intentionally not imported
+    because their path assumptions do not belong in the public app.
     """
     legacy_path = Path(legacy_path)
     try:
@@ -201,25 +207,38 @@ def migrate_legacy_credentials(
 
     for key, value in discovered.items():
         secret_store.set(key, value)
-
-    for key in discovered:
         payload.pop(key, None)
-
-    try:
-        if payload:
-            legacy_path.write_text(
-                json.dumps(payload, indent=2, ensure_ascii=False),
-                encoding="utf-8",
-            )
-            os.chmod(legacy_path, stat.S_IRUSR | stat.S_IWUSR)
-        else:
-            legacy_path.unlink(missing_ok=True)
-    except OSError as exc:
-        raise SecretStorageError(
-            "Credentials reached Keychain, but the old plaintext settings file "
-            "could not be removed. Delete it manually before sharing diagnostics."
-        ) from exc
+        try:
+            if payload:
+                _write_private_json(legacy_path, payload)
+            else:
+                legacy_path.unlink(missing_ok=True)
+        except OSError as exc:
+            raise SecretStorageError(
+                "A credential reached Keychain, but its plaintext copy could "
+                "not be removed. Delete the legacy settings file manually "
+                "before sharing diagnostics."
+            ) from exc
     return True
+
+
+def _write_private_json(path: Path, payload: dict[str, Any]) -> None:
+    """Atomically write a private JSON file beside its existing path."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    descriptor, temporary_name = tempfile.mkstemp(
+        prefix=f".{path.name}.",
+        suffix=".tmp",
+        dir=path.parent,
+    )
+    temporary = Path(temporary_name)
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+            json.dump(payload, handle, indent=2, ensure_ascii=False)
+            handle.write("\n")
+        os.chmod(temporary, stat.S_IRUSR | stat.S_IWUSR)
+        os.replace(temporary, path)
+    finally:
+        temporary.unlink(missing_ok=True)
 
 
 def _compatible_type(value: Any, default: Any) -> bool:

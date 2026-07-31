@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.9.0-beta.7
+
+- Prevented repeated macOS Keychain prompts by caching each successful
+  credential read or write for the lifetime of the app.
+- Made legacy credential migration remove each plaintext key immediately after
+  that key reaches Keychain, so a later denial does not repeat completed work.
+
 ## 0.9.0-beta.6
 
 - Fixed certificate verification failures in the universal build for OpenAI,
