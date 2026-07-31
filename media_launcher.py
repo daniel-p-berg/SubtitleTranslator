@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import shutil
 import subprocess
@@ -30,6 +31,21 @@ _MPV_CANDIDATES = (
     "/Applications/mpv.app/Contents/MacOS/mpv",
     "~/Applications/mpv.app/Contents/MacOS/mpv",
 )
+
+_SUBTITLE_POSITION_OPTIONS = (
+    "--sub-pos=88",
+    "--secondary-sub-pos=12",
+    "--secondary-sub-visibility=yes",
+)
+_IMAGE_SUBTITLE_CODECS = {
+    "dvb_subtitle",
+    "dvd_subtitle",
+    "dvdsub",
+    "hdmv_pgs_bitmap",
+    "hdmv_pgs_subtitle",
+    "pgssub",
+    "xsub",
+}
 
 
 class MpvLaunchError(RuntimeError):
@@ -89,9 +105,16 @@ def launch_in_mpv(
         if configured_path
         else resolve_mpv_executable()
     )
+    subtitle_options = _subtitle_role_options(media)
     try:
         process = subprocess.Popen(
-            [executable, "--", str(media)],
+            [
+                executable,
+                *subtitle_options,
+                *_SUBTITLE_POSITION_OPTIONS,
+                "--",
+                str(media),
+            ],
             stdin=subprocess.DEVNULL,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
@@ -106,6 +129,105 @@ def launch_in_mpv(
     return LaunchInfo(str(media), executable, process.pid)
 
 
+def _subtitle_role_options(media_path: str | Path) -> tuple[str, str]:
+    """Choose explicit MPV primary/secondary IDs when local metadata permits."""
+    streams = _probe_subtitle_streams(media_path)
+    if streams is None:
+        return ("--sid=auto", "--secondary-sid=auto")
+    if not streams:
+        return ("--sid=no", "--secondary-sid=no")
+
+    candidates = [
+        {
+            "sid": sid,
+            "image": (
+                str(stream.get("codec_name", "")).lower()
+                in _IMAGE_SUBTITLE_CODECS
+            ),
+            "default": bool(
+                (stream.get("disposition") or {}).get("default")
+            ),
+            "forced": _stream_is_forced(stream),
+        }
+        for sid, stream in enumerate(streams, start=1)
+    ]
+    full = [item for item in candidates if not item["forced"]] or candidates
+    images = [item for item in full if item["image"]]
+    text = [item for item in full if not item["image"]]
+
+    if images and text:
+        primary = max(images, key=_selection_score)
+        secondary = max(text, key=_selection_score)
+        return (
+            f"--sid={primary['sid']}",
+            f"--secondary-sid={secondary['sid']}",
+        )
+
+    primary = max(full, key=_selection_score)
+    secondary = None
+    if text:
+        remaining = [item for item in text if item["sid"] != primary["sid"]]
+        if remaining:
+            secondary = max(remaining, key=_selection_score)
+    return (
+        f"--sid={primary['sid']}",
+        (
+            f"--secondary-sid={secondary['sid']}"
+            if secondary
+            else "--secondary-sid=no"
+        ),
+    )
+
+
+def _probe_subtitle_streams(media_path: str | Path) -> list[dict] | None:
+    """Return subtitle streams, or None when probing is unavailable."""
+    ffprobe = dependencies.resolve_tool("ffprobe") or shutil.which("ffprobe")
+    if not ffprobe:
+        return None
+    try:
+        result = subprocess.run(  # noqa: S603
+            [
+                ffprobe,
+                "-v",
+                "error",
+                "-print_format",
+                "json",
+                "-show_streams",
+                str(Path(media_path).expanduser().resolve()),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=8,
+            check=False,
+        )
+        if result.returncode != 0:
+            return None
+        payload = json.loads(result.stdout)
+    except (OSError, subprocess.SubprocessError, json.JSONDecodeError):
+        return None
+    return [
+        stream
+        for stream in payload.get("streams", [])
+        if stream.get("codec_type") == "subtitle"
+    ]
+
+
+def _stream_is_forced(stream: dict) -> bool:
+    disposition = stream.get("disposition") or {}
+    if disposition.get("forced"):
+        return True
+    tags = stream.get("tags") or {}
+    title = str(tags.get("title", tags.get("TITLE", ""))).lower()
+    return any(
+        marker in title
+        for marker in ("forced", "signs", "songs", "karaoke")
+    )
+
+
+def _selection_score(item: dict) -> tuple[int, int]:
+    return (1 if item["default"] else 0, -int(item["sid"]))
+
+
 def recent_merged_files(limit: int = 6, directory: Path | None = None) -> list[Path]:
     """Backward-compatible recent-output helper."""
     root = Path(directory) if directory is not None else app_paths.MERGED_DIR
@@ -115,33 +237,41 @@ def recent_merged_files(limit: int = 6, directory: Path | None = None) -> list[P
 def recent_media_files(
     directories: list[str | Path],
     *,
+    files: list[str | Path] | tuple[str | Path, ...] = (),
     limit: int = 12,
 ) -> list[Path]:
-    """Return recent playable files from user-approved locations."""
+    """Return exact recent files plus media found in approved scan roots."""
     if limit <= 0:
         return []
 
     candidates: list[tuple[float, int, Path]] = []
     seen: set[Path] = set()
+
+    def add_candidate(path: Path) -> None:
+        if path.suffix.lower() not in PLAYABLE_EXTENSIONS:
+            return
+        try:
+            resolved = path.resolve(strict=True)
+        except OSError:
+            return
+        if resolved in seen or not resolved.is_file():
+            return
+        seen.add(resolved)
+        try:
+            stat = resolved.stat()
+        except OSError:
+            return
+        candidates.append((stat.st_mtime, stat.st_size, resolved))
+
+    for file_path in files:
+        add_candidate(Path(file_path).expanduser())
+
     for directory in directories:
         root = Path(directory).expanduser()
         if not root.is_dir():
             continue
         for path in app_paths.iter_files_recursive(root):
-            if path.suffix.lower() not in PLAYABLE_EXTENSIONS:
-                continue
-            try:
-                resolved = path.resolve()
-            except OSError:
-                continue
-            if resolved in seen:
-                continue
-            seen.add(resolved)
-            try:
-                stat = path.stat()
-            except OSError:
-                continue
-            candidates.append((stat.st_mtime, stat.st_size, path))
+            add_candidate(path)
 
     candidates.sort(key=lambda item: (item[0], item[1]), reverse=True)
     return [path for _mtime, _size, path in candidates[:limit]]

@@ -487,6 +487,7 @@ class CandidateDialog(QDialog):
     """Manual OpenSubtitles result review with editable search terms."""
 
     candidate_chosen = Signal(object)
+    translation_requested = Signal()
 
     def __init__(
         self,
@@ -496,6 +497,9 @@ class CandidateDialog(QDialog):
         video_path: str,
         target_language: str,
         initial_result: open_subtitles.SubtitleSearchResult | None = None,
+        allow_translation: bool = False,
+        translation_summary: str = "",
+        rejection_reasons: dict[int, str] | None = None,
     ) -> None:
         super().__init__(parent)
         self.api_key = api_key
@@ -504,12 +508,14 @@ class CandidateDialog(QDialog):
         self._candidates: list[open_subtitles.SubtitleCandidate] = []
         self._thread: FunctionThread | None = None
         self._cancellation_token: CancellationToken | None = None
+        self.allow_translation = allow_translation
+        self.rejection_reasons = dict(rejection_reasons or {})
 
         target_name = i18n.display_name(target_language)
         self.setWindowTitle(
             tr("Review {language} Results").format(language=target_name)
         )
-        self.resize(780, 520)
+        self.resize(900, 540)
         layout = QVBoxLayout(self)
         layout.setContentsMargins(18, 18, 18, 18)
         layout.setSpacing(12)
@@ -544,8 +550,11 @@ class CandidateDialog(QDialog):
         search_row.addWidget(self.search_button)
         search_row.addWidget(self.cancel_search_button)
         layout.addLayout(search_row)
+        if not self.api_key:
+            self.search_button.setEnabled(False)
+            self.query.setEnabled(False)
 
-        self.table = QTableWidget(0, 5)
+        self.table = QTableWidget(0, 6)
         self.table.setHorizontalHeaderLabels(
             [
                 tr("Release"),
@@ -553,6 +562,7 @@ class CandidateDialog(QDialog):
                 tr("Year"),
                 tr("Rating"),
                 tr("Downloads"),
+                tr("Details"),
             ]
         )
         self.table.setSelectionBehavior(
@@ -569,6 +579,7 @@ class CandidateDialog(QDialog):
         header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
         header.setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
         header.setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(5, QHeaderView.ResizeMode.Stretch)
         self.table.itemDoubleClicked.connect(lambda _item: self._use_selected())
         layout.addWidget(self.table, 1)
 
@@ -576,11 +587,27 @@ class CandidateDialog(QDialog):
         self.status.setStyleSheet(f"color: {MUTED};")
         layout.addWidget(self.status)
 
+        if allow_translation:
+            translation_notice = QLabel(
+                translation_summary
+                + "\n"
+                + tr("OpenAI receives subtitle text only when you translate.")
+            )
+            translation_notice.setWordWrap(True)
+            translation_notice.setStyleSheet(f"color: {WARM};")
+            layout.addWidget(translation_notice)
+
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Cancel)
         self.use_button = buttons.addButton(
             tr("Use Selected"),
             QDialogButtonBox.ButtonRole.AcceptRole,
         )
+        self.translate_button = buttons.addButton(
+            tr("Translate"),
+            QDialogButtonBox.ButtonRole.ActionRole,
+        )
+        self.translate_button.setVisible(allow_translation)
+        self.translate_button.clicked.connect(self._translate)
         cancel_button = buttons.button(QDialogButtonBox.StandardButton.Cancel)
         if cancel_button:
             cancel_button.setText(tr("Cancel"))
@@ -601,6 +628,12 @@ class CandidateDialog(QDialog):
     def _search(self) -> None:
         if self._thread and self._thread.isRunning():
             return
+        if not self.api_key:
+            self.status.setText(
+                tr("Add an OpenSubtitles API key in Settings.")
+            )
+            return
+        self.rejection_reasons.clear()
         query = self.query.text().strip() or None
         self.search_button.setEnabled(False)
         self.cancel_search_button.setEnabled(True)
@@ -632,14 +665,18 @@ class CandidateDialog(QDialog):
             thread.deleteLater()
 
     def _populate(self, result: open_subtitles.SubtitleSearchResult) -> None:
-        self.search_button.setEnabled(True)
+        self.search_button.setEnabled(bool(self.api_key))
         self.query.setText(result.query)
         self._candidates = list(result.candidates)
         self.table.setRowCount(len(self._candidates))
         automatic_ids = {item.file_id for item in result.automatic_matches}
         for row, candidate in enumerate(self._candidates):
             release = QTableWidgetItem(candidate.release_name or candidate.file_name)
-            if candidate.file_id in automatic_ids:
+            rejection_reason = self.rejection_reasons.get(candidate.file_id, "")
+            if rejection_reason:
+                release.setForeground(QColor(DANGER))
+                release.setToolTip(rejection_reason)
+            elif candidate.file_id in automatic_ids:
                 release.setForeground(QColor(ACCENT))
                 release.setToolTip(tr("Strong automatic title match"))
             elif candidate.trusted:
@@ -658,6 +695,11 @@ class CandidateDialog(QDialog):
                     QLocale().toString(candidate.download_count)
                 ),
             )
+            details = QTableWidgetItem(rejection_reason)
+            details.setToolTip(rejection_reason)
+            if rejection_reason:
+                details.setForeground(QColor(DANGER))
+            self.table.setItem(row, 5, details)
         self.status.setText(
             tr("{count} results").format(count=len(self._candidates))
             + "; "
@@ -665,11 +707,17 @@ class CandidateDialog(QDialog):
                 count=len(result.automatic_matches)
             )
         )
+        if not self.api_key:
+            self.status.setText(
+                self.status.text()
+                + "; "
+                + tr("Add an OpenSubtitles API key in Settings.")
+            )
         if self._candidates:
             self.table.selectRow(0)
 
     def _search_failed(self, error: Exception) -> None:
-        self.search_button.setEnabled(True)
+        self.search_button.setEnabled(bool(self.api_key))
         if isinstance(error, OperationCancelled):
             self.status.setText(tr("Search cancelled."))
         else:
@@ -692,6 +740,12 @@ class CandidateDialog(QDialog):
         if not 0 <= row < len(self._candidates):
             return
         self.candidate_chosen.emit(self._candidates[row])
+        self.accept()
+
+    def _translate(self) -> None:
+        if not self.allow_translation:
+            return
+        self.translation_requested.emit()
         self.accept()
 
 
@@ -1443,7 +1497,7 @@ class SetupChecklistDialog(QDialog):
         )
         if directory:
             self.owner.preferences = (
-                self.owner.settings_store.remember_media_location(directory)
+                self.owner.settings_store.add_media_location(directory)
             )
             self.owner._load_media_locations()
             self._refresh()
@@ -2275,8 +2329,7 @@ class MainWindow(QMainWindow):
         self.result_frame.setVisible(False)
         self.inspect_label.setText(tr("Inspecting subtitle tracks..."))
         self._update_cost_estimate()
-        self.preferences = self.settings_store.remember_media_location(media.parent)
-        self._load_media_locations()
+        self.preferences = self.settings_store.remember_media_file(media)
 
         target = self.target_combo.currentData()
         roots = list(self.preferences["media_locations"])
@@ -2400,6 +2453,12 @@ class MainWindow(QMainWindow):
         self._update_cost_estimate()
 
     def _start_pipeline(self) -> None:
+        self._start_pipeline_for_strategy()
+
+    def _start_pipeline_for_strategy(
+        self,
+        strategy_override: pipeline.Strategy | None = None,
+    ) -> None:
         if (
             not self.video_path
             or (
@@ -2438,7 +2497,7 @@ class MainWindow(QMainWindow):
                 return
 
         self._save_preferences(silent=True)
-        method = next(
+        method = strategy_override or next(
             code for code, button in self.mode_buttons.items() if button.isChecked()
         )
         try:
@@ -2517,6 +2576,10 @@ class MainWindow(QMainWindow):
         self.result_label.setText(Path(output).name)
         self.play_button.setVisible(bool(result.merged_path))
         self.result_frame.setVisible(True)
+        if result.merged_path:
+            self.preferences = self.settings_store.remember_media_file(
+                result.merged_path
+            )
         for warning in result.warnings:
             self._append_detail(f"WARNING    {warning}")
         self._refresh_recent()
@@ -2528,7 +2591,13 @@ class MainWindow(QMainWindow):
         self._append_detail(f"ERROR      {error}")
         self.details_toggle.setChecked(True)
         if isinstance(error, pipeline.CandidateReviewRequired):
-            self._open_candidate_review(error.result)
+            self.status_label.setText(tr("Review Search Results"))
+            self.status_label.setStyleSheet(f"color: {WARM}; font-weight: 600;")
+            self._open_candidate_review(
+                error.result,
+                allow_translation=error.allow_translation,
+                rejection_reasons=error.rejection_reasons,
+            )
             return
         QMessageBox.critical(
             self,
@@ -2576,6 +2645,9 @@ class MainWindow(QMainWindow):
     def _open_candidate_review(
         self,
         initial_result: open_subtitles.SubtitleSearchResult | None = None,
+        *,
+        allow_translation: bool = False,
+        rejection_reasons: dict[int, str] | None = None,
     ) -> None:
         if not self.video_path:
             QMessageBox.information(
@@ -2595,7 +2667,7 @@ class MainWindow(QMainWindow):
                 ),
             )
             return
-        if not key:
+        if not key and not allow_translation:
             QMessageBox.information(
                 self,
                 tr("OpenSubtitles Key Required"),
@@ -2609,9 +2681,15 @@ class MainWindow(QMainWindow):
             video_path=self.video_path,
             target_language=self.target_combo.currentData(),
             initial_result=initial_result,
+            allow_translation=allow_translation,
+            translation_summary=self._translation_review_summary(),
+            rejection_reasons=rejection_reasons,
         )
         self._candidate_dialog.candidate_chosen.connect(
             self._candidate_selected
+        )
+        self._candidate_dialog.translation_requested.connect(
+            self._translate_after_review
         )
         self._candidate_dialog.exec()
 
@@ -2626,6 +2704,33 @@ class MainWindow(QMainWindow):
             tr("Target subtitle: {name}").format(name=name)
         )
         self._update_cost_estimate()
+
+    def _translate_after_review(self) -> None:
+        self.selected_candidate = None
+        self.selected_subtitle_path = ""
+        self.sidecar_label.setText(tr("Target subtitle: automatic"))
+        self._append_detail("TRANSLATE  Approved after subtitle review")
+        QTimer.singleShot(
+            0,
+            lambda: self._start_pipeline_for_strategy("translate"),
+        )
+
+    def _translation_review_summary(self) -> str:
+        model = self.model_combo.currentText().strip()
+        reasoning = str(self.reasoning_combo.currentData() or "")
+        estimate = translation_cost.estimate_for_duration(
+            self._media_duration_seconds,
+            model,
+            reasoning,
+        )
+        if estimate:
+            range_text = (
+                f"${estimate.cost_low:.2f}-${estimate.cost_high:.2f}"
+            )
+            return tr("Estimated translation cost: {range}").format(
+                range=range_text
+            )
+        return tr("Pricing is unavailable for this custom model.")
 
     def _toggle_details(self, visible: bool) -> None:
         self.details.setVisible(visible)
@@ -2713,12 +2818,17 @@ class MainWindow(QMainWindow):
         if self._recent_worker and self._recent_worker.isRunning():
             return
         roots = list(self.preferences["media_locations"])
+        files = list(self.preferences["recent_media_files"])
         self.recent_list.clear()
         self.recent_list.addItem(
             tr("Scanning approved media folders...")
         )
         worker = FunctionThread(
-            lambda: media_launcher.recent_media_files(roots, limit=40),
+            lambda: media_launcher.recent_media_files(
+                roots,
+                files=files,
+                limit=40,
+            ),
             self,
         )
         self._recent_worker = worker
@@ -2933,7 +3043,7 @@ class MainWindow(QMainWindow):
         )
         if not directory:
             return
-        self.preferences = self.settings_store.remember_media_location(directory)
+        self.preferences = self.settings_store.add_media_location(directory)
         self._load_media_locations()
 
     def _remove_media_location(self) -> None:

@@ -32,8 +32,9 @@ SETTINGS_PATH = APP_SUPPORT_DIR / "settings.json"
 LEGACY_SETTINGS_PATH = Path.home() / ".animesub_config.json"
 
 DEFAULT_SETTINGS: dict[str, Any] = {
-    "version": 4,
+    "version": 5,
     "media_locations": [],
+    "recent_media_files": [],
     "workspace_directory": str(WORKSPACE_DIR),
     "output_mode": "alongside",
     "custom_output_directory": "",
@@ -79,6 +80,16 @@ class SettingsStore:
         for key in DEFAULT_SETTINGS:
             if key in loaded and _compatible_type(loaded[key], DEFAULT_SETTINGS[key]):
                 settings[key] = loaded[key]
+        try:
+            loaded_version = int(loaded.get("version", 0))
+        except (TypeError, ValueError):
+            loaded_version = 0
+        if loaded_version < 5:
+            settings["media_locations"] = _migrate_legacy_media_locations(
+                loaded.get("media_locations", [])
+            )
+            settings["recent_media_files"] = []
+        settings["version"] = DEFAULT_SETTINGS["version"]
 
         return _validated_settings(settings)
 
@@ -89,6 +100,7 @@ class SettingsStore:
             if key in settings and _compatible_type(settings[key], payload[key]):
                 payload[key] = settings[key]
 
+        payload["version"] = DEFAULT_SETTINGS["version"]
         payload = _validated_settings(payload)
         self.path.parent.mkdir(parents=True, exist_ok=True)
         _chmod_private_directory(self.path.parent)
@@ -114,12 +126,29 @@ class SettingsStore:
         self.save(settings)
         return settings
 
-    def remember_media_location(self, directory: str | Path) -> dict[str, Any]:
-        """Add a user-selected media directory without scanning anything else."""
+    def add_media_location(self, directory: str | Path) -> dict[str, Any]:
+        """Add an explicitly approved directory to the recursive scan roots."""
         resolved = str(Path(directory).expanduser().resolve())
         settings = self.load()
         locations = [item for item in settings["media_locations"] if item != resolved]
         settings["media_locations"] = [resolved, *locations][:12]
+        self.save(settings)
+        return settings
+
+    def remember_media_location(self, directory: str | Path) -> dict[str, Any]:
+        """Backward-compatible alias for explicitly approving a media folder."""
+        return self.add_media_location(directory)
+
+    def remember_media_file(self, path: str | Path) -> dict[str, Any]:
+        """Remember one selected media file without approving its parent scan."""
+        resolved = str(Path(path).expanduser().resolve())
+        settings = self.load()
+        files = [
+            item
+            for item in settings["recent_media_files"]
+            if item != resolved
+        ]
+        settings["recent_media_files"] = [resolved, *files][:40]
         self.save(settings)
         return settings
 
@@ -372,6 +401,15 @@ def _validated_settings(values: dict[str, Any]) -> dict[str, Any]:
             locations.append(normalized)
     result["media_locations"] = locations[:12]
 
+    recent_files: list[str] = []
+    for item in result.get("recent_media_files", []):
+        if not isinstance(item, str) or not item.strip():
+            continue
+        normalized = str(Path(item).expanduser())
+        if normalized not in recent_files:
+            recent_files.append(normalized)
+    result["recent_media_files"] = recent_files[:40]
+
     if result.get("target_language") not in supported_languages:
         result["target_language"] = DEFAULT_SETTINGS["target_language"]
     if result.get("source_language") not in {"auto", *supported_languages}:
@@ -424,6 +462,32 @@ def _validated_settings(values: dict[str, Any]) -> dict[str, Any]:
                 overrides[key] = value
     result["prompt_overrides"] = overrides
     return result
+
+
+def _migrate_legacy_media_locations(values: Any) -> list[str]:
+    """Keep only unambiguous broad scan roots from the mixed version-4 list."""
+    if not isinstance(values, list):
+        return []
+    locations: list[Path] = []
+    for value in values:
+        if not isinstance(value, str) or not value.strip():
+            continue
+        candidate = Path(value).expanduser()
+        if candidate not in locations:
+            locations.append(candidate)
+
+    approved: list[str] = []
+    for candidate in locations:
+        for other in locations:
+            if other == candidate:
+                continue
+            try:
+                other.relative_to(candidate)
+            except ValueError:
+                continue
+            approved.append(str(candidate))
+            break
+    return approved[:12]
 
 
 def _chmod_private_directory(path: Path) -> None:

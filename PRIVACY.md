@@ -39,7 +39,9 @@ Non-secret preferences are stored at:
 
 This includes the chosen interface language. Locale detection and catalog
 loading are local; the interface language is not reported to the developer or
-sent to an API provider.
+sent to an API provider. Settings can also contain exact paths for recent media
+files and paths to media folders the user explicitly approved for recursive
+scanning.
 
 Intermediate subtitles, timing caches, and local job summaries default to:
 
@@ -50,10 +52,11 @@ Intermediate subtitles, timing caches, and local job summaries default to:
 These locations are user-private by filesystem permissions. The workspace is
 configurable and can be cleaned after successful processing.
 
-Media files are read from locations selected by the user. The app does not
-silently enumerate unrelated folders. Originals are not changed unless the
-user explicitly enables **Move original to Trash after verified merge** for a
-specific job.
+Media files are read from locations selected by the user. Choosing an
+individual file remembers only that exact path and does not approve its parent
+folder. Recursive enumeration is limited to folders explicitly added by the
+user. Originals are not changed unless the user explicitly enables **Move
+original to Trash after verified merge** for a specific job.
 
 ## Network Requests
 

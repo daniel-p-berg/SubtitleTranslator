@@ -106,12 +106,20 @@ class _Reference:
 
 
 @dataclass(frozen=True)
+class _PlaybackReference:
+    path: str
+    language_code: str
+    label: str
+
+
+@dataclass(frozen=True)
 class _Target:
     path: str
     origin: str
     embedded: bool
     candidates: tuple[open_subtitles.SubtitleCandidate, ...] = ()
     candidate_id: int | None = None
+    search_result: open_subtitles.SubtitleSearchResult | None = None
 
 
 class CandidateReviewRequired(RuntimeError):
@@ -121,9 +129,14 @@ class CandidateReviewRequired(RuntimeError):
         self,
         message: str,
         result: open_subtitles.SubtitleSearchResult,
+        *,
+        allow_translation: bool = False,
+        rejection_reasons: dict[int, str] | None = None,
     ) -> None:
         super().__init__(message)
         self.result = result
+        self.allow_translation = allow_translation
+        self.rejection_reasons = dict(rejection_reasons or {})
 
 
 class SubtitlePipeline:
@@ -292,27 +305,22 @@ class SubtitlePipeline:
 
         merged_path = ""
         moved_original = False
+        playback_reference: _PlaybackReference | None = None
         if options.create_merged_video:
-            self._emit("merge", "Creating and verifying the MKV", 82)
-            merge_tracks = [
-                muxer.SubtitleTrack(
-                    final_subtitle or target.path,
-                    target_language.code,
-                    target_language.name,
-                    True,
+            if reference is None:
+                playback_reference = self._prepare_pgs_playback_reference(
+                    video,
+                    streams,
+                    options,
+                    job_directory,
                 )
-            ]
-            if reference and Path(reference.path).is_file():
-                source_language = languages.get_language(reference.language_code)
-                if source_language.code != target_language.code:
-                    merge_tracks.append(
-                        muxer.SubtitleTrack(
-                            reference.path,
-                            source_language.code,
-                            source_language.name,
-                            False,
-                        )
-                    )
+            self._emit("merge", "Creating and verifying the MKV", 82)
+            merge_tracks = self._build_merge_tracks(
+                final_subtitle or target.path,
+                target_language,
+                reference,
+                playback_reference,
+            )
             merged_path = muxer.mux_tracks(
                 str(video),
                 merge_tracks,
@@ -345,6 +353,7 @@ class SubtitlePipeline:
                     job_directory,
                     video,
                     reference,
+                    playback_reference,
                     target,
                     final_subtitle,
                     merged_path,
@@ -361,9 +370,18 @@ class SubtitlePipeline:
             100,
             check_cancellation=False,
         )
+        source_language_code = (
+            reference.language_code
+            if reference
+            else (
+                playback_reference.language_code
+                if playback_reference
+                else "und"
+            )
+        )
         self._update_diagnostics_summary(
             status="completed",
-            source_language=reference.language_code if reference else "und",
+            source_language=source_language_code,
             target_language=target_language.code,
             target_origin=target.origin,
             final_subtitle_filename=(
@@ -383,7 +401,7 @@ class SubtitlePipeline:
             str(video),
             final_subtitle,
             merged_path,
-            reference.language_code if reference else "und",
+            source_language_code,
             target_language.code,
             target.origin,
             moved_original,
@@ -394,6 +412,91 @@ class SubtitlePipeline:
                 else {}
             ),
         )
+
+    def _prepare_pgs_playback_reference(
+        self,
+        video: Path,
+        streams: list[dict],
+        options: PipelineOptions,
+        job_directory: Path,
+    ) -> _PlaybackReference | None:
+        stream = extractor.pick_playback_pgs_stream(
+            streams,
+            preferred_language=options.source_language,
+            excluded_language=options.target_language,
+        )
+        if stream is None:
+            return None
+
+        profile = extractor.stream_language(stream) or languages.UNKNOWN_LANGUAGE
+        stream_index = stream.get("index", "?")
+        self._emit(
+            "source",
+            f"Preserving embedded {profile.name} PGS track for playback",
+            78,
+        )
+        extracted = extractor.extract_pgs_subtitle_stream(
+            str(video),
+            stream,
+            output_directory=job_directory,
+        )
+        stable_path = self._copy_into_job(
+            extracted,
+            job_directory,
+            f"playback-source.{profile.code}.sup",
+        )
+        return _PlaybackReference(
+            stable_path,
+            profile.code,
+            f"embedded {profile.name} PGS track {stream_index}",
+        )
+
+    @staticmethod
+    def _build_merge_tracks(
+        target_path: str,
+        target_language: languages.LanguageProfile,
+        reference: _Reference | None,
+        playback_reference: _PlaybackReference | None,
+    ) -> list[muxer.SubtitleTrack]:
+        if playback_reference:
+            source_language = languages.get_language(
+                playback_reference.language_code
+            )
+            return [
+                muxer.SubtitleTrack(
+                    playback_reference.path,
+                    source_language.code,
+                    f"{source_language.name} (PGS)",
+                    True,
+                ),
+                muxer.SubtitleTrack(
+                    target_path,
+                    target_language.code,
+                    target_language.name,
+                    False,
+                ),
+            ]
+
+        tracks = [
+            muxer.SubtitleTrack(
+                target_path,
+                target_language.code,
+                target_language.name,
+                True,
+            )
+        ]
+        if reference and Path(reference.path).is_file():
+            source_language = languages.get_language(reference.language_code)
+            if source_language.code != target_language.code:
+                tracks.append(
+                    muxer.SubtitleTrack(
+                        reference.path,
+                        source_language.code,
+                        source_language.name,
+                        False,
+                    )
+                )
+        return tracks
 
     def _resolve_reference(
         self,
@@ -565,6 +668,7 @@ class SubtitlePipeline:
                 )
                 return _Target(normalized, "sidecar file", False)
 
+        search_result: open_subtitles.SubtitleSearchResult | None = None
         search_candidates: tuple[open_subtitles.SubtitleCandidate, ...] = ()
         if options.strategy in {"automatic", "find"} and options.opensubtitles_api_key:
             self._emit(
@@ -584,9 +688,9 @@ class SubtitlePipeline:
                     details,
                 ),
             )
-            search_candidates = search_result.automatic_matches
-            if search_candidates:
-                candidate = search_candidates[0]
+            search_candidates = search_result.candidates[:12]
+            if search_result.automatic_matches:
+                candidate = search_result.automatic_matches[0]
                 self._record_candidate(
                     candidate,
                     decision="automatic title match",
@@ -617,6 +721,7 @@ class SubtitlePipeline:
                     False,
                     search_candidates,
                     candidate.file_id,
+                    search_result,
                 )
             if options.strategy == "find" and search_result.candidates:
                 raise CandidateReviewRequired(
@@ -627,14 +732,29 @@ class SubtitlePipeline:
                 raise RuntimeError(
                     f"No {target.name} subtitles were found on OpenSubtitles."
                 )
-            if search_result.candidates:
-                self._warn(
-                    "OpenSubtitles returned broader matches that need manual "
-                    "review; automatic mode used translation instead."
-                )
 
         if options.strategy == "find" and not options.opensubtitles_api_key:
             raise RuntimeError("An OpenSubtitles API key is required for search.")
+        if options.strategy == "automatic":
+            review_result = search_result or open_subtitles.SubtitleSearchResult(
+                query=video.stem,
+                candidates=(),
+                automatic_matches=(),
+                matched_by_hash=False,
+            )
+            translation_available = bool(
+                reference
+                and reference.path
+                and reference.language_code != "und"
+                and options.openai_api_key.strip()
+            )
+            if review_result.candidates or translation_available:
+                raise CandidateReviewRequired(
+                    "No target-language subtitle was safe to select automatically. "
+                    "Review the search results or explicitly approve translation.",
+                    review_result,
+                    allow_translation=translation_available,
+                )
         if not reference or not reference.path:
             image_reference = extractor.extract_image_subtitle_timings(
                 str(video),
@@ -686,7 +806,13 @@ class SubtitlePipeline:
         )
         path = job_directory / f"translated.{target.code}.srt"
         path.write_text(translated, encoding="utf-8")
-        return _Target(str(path), "translation", False, search_candidates)
+        return _Target(
+            str(path),
+            "translation",
+            False,
+            search_candidates,
+            search_result=search_result,
+        )
 
     def _sync_or_retry(
         self,
@@ -711,6 +837,7 @@ class SubtitlePipeline:
                 False,
                 target.candidates,
                 target.candidate_id,
+                target.search_result,
             )
 
         api_key = options.opensubtitles_api_key.strip()
@@ -744,6 +871,13 @@ class SubtitlePipeline:
                 candidates = []
 
         rejected: list[str] = []
+        rejection_reasons: dict[int, str] = {}
+        if (
+            result
+            and result.confidence == "low"
+            and target.candidate_id is not None
+        ):
+            rejection_reasons[target.candidate_id] = result.message
         for index, candidate in enumerate(candidates, start=1):
             self._check_cancelled()
             if candidate.file_id == target.candidate_id:
@@ -797,6 +931,7 @@ class SubtitlePipeline:
                         False,
                         tuple(candidates),
                         candidate.file_id,
+                        target.search_result,
                     )
                 if alternate_result.confidence != "low":
                     self._record_candidate(
@@ -810,8 +945,10 @@ class SubtitlePipeline:
                         False,
                         tuple(candidates),
                         candidate.file_id,
+                        target.search_result,
                     )
                 rejected.append(alternate_result.message)
+                rejection_reasons[candidate.file_id] = alternate_result.message
                 self._record_candidate(
                     candidate,
                     decision=alternate_result.message,
@@ -821,6 +958,7 @@ class SubtitlePipeline:
                 raise
             except Exception as exc:  # noqa: BLE001
                 rejected.append(str(exc))
+                rejection_reasons[candidate.file_id] = str(exc)
                 self._record_candidate(
                     candidate,
                     decision=str(exc),
@@ -830,9 +968,33 @@ class SubtitlePipeline:
         detail = rejected[-1] if rejected else (
             result.message if result else "No candidate could be validated."
         )
-        raise RuntimeError(
+        if target.search_result:
+            review_result = open_subtitles.SubtitleSearchResult(
+                query=target.search_result.query,
+                candidates=target.search_result.candidates,
+                automatic_matches=(),
+                matched_by_hash=target.search_result.matched_by_hash,
+            )
+        else:
+            review_result = open_subtitles.SubtitleSearchResult(
+                query=video.stem,
+                candidates=tuple(candidates),
+                automatic_matches=(),
+                matched_by_hash=False,
+            )
+        translation_available = bool(
+            options.strategy == "automatic"
+            and reference
+            and reference.path
+            and reference.language_code != "und"
+            and options.openai_api_key.strip()
+        )
+        raise CandidateReviewRequired(
             "No target-language subtitle candidate matched the available "
-            f"timing reference. Last result: {detail}"
+            f"timing reference. Last result: {detail}",
+            review_result,
+            allow_translation=translation_available,
+            rejection_reasons=rejection_reasons,
         )
 
     def _sync_target(
@@ -1044,13 +1206,26 @@ class SubtitlePipeline:
         job_directory: Path,
         video: Path,
         reference: _Reference | None,
+        playback_reference: _PlaybackReference | None,
         target: _Target,
         final_subtitle: str,
         merged_path: str,
     ) -> None:
+        source_language = (
+            reference.language_code
+            if reference
+            else (
+                playback_reference.language_code
+                if playback_reference
+                else "und"
+            )
+        )
         summary = {
             "media_filename": video.name,
-            "source_language": reference.language_code if reference else "und",
+            "source_language": source_language,
+            "playback_reference": (
+                playback_reference.label if playback_reference else ""
+            ),
             "target_origin": target.origin,
             "final_subtitle_filename": Path(final_subtitle).name if final_subtitle else "",
             "merged_filename": Path(merged_path).name if merged_path else "",

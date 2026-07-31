@@ -20,6 +20,9 @@ stored in macOS Keychain.
 - Searches the official OpenSubtitles REST API with hash and title matching.
 - Offers manual review when search results are plausible but not safe to select
   automatically.
+- Pauses Automatic mode when search candidates fail timing validation, shows
+  rejection details, and requires an explicit cost-disclosed action before
+  translating through OpenAI.
 - Translates text subtitles with configurable OpenAI models and reasoning.
 - Includes editable source/target-aware prompt profiles for 30 languages.
 - Localizes the complete application interface into the same 30 languages,
@@ -27,8 +30,10 @@ stored in macOS Keychain.
 - Detects constant offsets, gradual drift, incompatible cuts, and local timing
   discontinuities across the full runtime.
 - Tries alternate OpenSubtitles candidates when timing cannot be reconciled.
-- Removes style and positioning instructions so mpv controls both subtitle
-  locations consistently.
+- Removes style and positioning instructions from text subtitles so mpv
+  controls their locations consistently.
+- Preserves one full embedded PGS source track when no text source exists,
+  without OCR or image re-encoding.
 - Creates verified MKV output without re-encoding video or audio.
 - Launches current or recent media directly in the user's normal mpv setup.
 - Cancels searches, translations, audio analysis, and muxing without leaving a
@@ -136,9 +141,11 @@ OpenSubtitles.
 ## File Behavior
 
 - Choose any individual media file from the Prepare screen.
-- Add one or more media folders to make recent-file access and nested sidecar
-  discovery convenient.
-- The app never scans outside selected files and registered folders.
+- Individually chosen and generated media are remembered as exact recent-file
+  paths; choosing one does not approve its parent folder for scanning.
+- Add one or more media folders when recursive recent-file access and nested
+  sidecar discovery are desired.
+- The app recursively scans only folders explicitly added by the user.
 - The original media stays in place and remains unmodified.
 - Working subtitles default to:
 
@@ -187,10 +194,13 @@ Useful default controls:
 | `g-S` | Select the secondary subtitle |
 | `Alt+v` | Toggle the secondary subtitle |
 
-SubtitleTranslator outputs clean SRT tracks without embedded positioning, so
-mpv remains responsible for primary and secondary placement. See the
-[mpv manual](https://mpv.io/manual/stable/) for additional styling, language,
-and delay options.
+SubtitleTranslator outputs clean SRT tracks without embedded positioning. When
+the only usable source subtitle is PGS, the app preserves one full PGS track
+losslessly and its launcher selects that authored bitmap track as primary while
+placing the translated text track at the top as secondary. It does not
+automatically pair two bitmap tracks because their authored positions could
+overlap. See the [mpv manual](https://mpv.io/manual/stable/) for additional
+styling, language, and delay options.
 
 ## Translation Prompts
 
@@ -216,7 +226,10 @@ The pipeline prefers timing evidence in this order:
 
 Translated subtitles inherit the source cue timings. Existing target-language
 subtitles are checked across the runtime for offset, drift, and discontinuities.
-Low-confidence candidates are rejected when alternatives can be tested.
+Low-confidence candidates are rejected when alternatives can be tested. If
+none passes, the app returns to review with rejection details and waits for the
+user to choose another result, cancel, or explicitly approve translation after
+seeing its estimated cost.
 
 Choose **Export Diagnostics** after a completed, failed, or cancelled job to
 save a private JSON report. It records timing confidence and corrections,

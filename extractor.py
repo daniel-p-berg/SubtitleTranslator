@@ -36,6 +36,12 @@ IMAGE_BASED_CODECS = {
     "dvb_teletext",
 }
 
+PGS_CODECS = {
+    "hdmv_pgs_bitmap",
+    "hdmv_pgs_subtitle",
+    "pgssub",
+}
+
 # Text-based subtitle codecs that can be converted to SRT
 TEXT_BASED_CODECS = {
     "srt",
@@ -314,6 +320,12 @@ def is_text_stream(stream: dict) -> bool:
     return codec in TEXT_BASED_CODECS or codec not in IMAGE_BASED_CODECS
 
 
+def is_pgs_stream(stream: dict) -> bool:
+    """Return whether a stream contains Blu-ray PGS subtitle images."""
+    codec = str(stream.get("codec_name", "")).lower().strip()
+    return codec in PGS_CODECS
+
+
 def is_language_stream(
     stream: dict,
     language_code: str,
@@ -385,6 +397,51 @@ def pick_reference_stream(
     )
 
 
+def pick_playback_pgs_stream(
+    streams: list[dict],
+    *,
+    preferred_language: str = "auto",
+    excluded_language: str | None = None,
+) -> dict | None:
+    """Choose one full PGS stream worth retaining for dual-subtitle playback."""
+    excluded_code = (
+        languages.get_language(excluded_language).code
+        if excluded_language
+        else None
+    )
+    candidates = []
+    for stream in streams:
+        if not is_pgs_stream(stream) or _is_forced_or_signs_stream(stream):
+            continue
+        profile = stream_language(stream)
+        if excluded_code and profile and profile.code == excluded_code:
+            continue
+        candidates.append(stream)
+
+    if not candidates:
+        return None
+
+    if preferred_language and preferred_language != "auto":
+        preferred_code = languages.get_language(preferred_language).code
+        preferred = [
+            stream
+            for stream in candidates
+            if stream_language(stream)
+            and stream_language(stream).code == preferred_code
+        ]
+        if preferred:
+            candidates = preferred
+        else:
+            unknown = [
+                stream for stream in candidates if stream_language(stream) is None
+            ]
+            if not unknown:
+                return None
+            candidates = unknown
+
+    return max(candidates, key=_stream_preference_score)
+
+
 def extract_subtitle_stream(
     input_path: str,
     stream: dict,
@@ -442,6 +499,64 @@ def extract_subtitle_stream(
         str(output_path),
         output_directory=output_dir,
     )
+
+
+def extract_pgs_subtitle_stream(
+    input_path: str,
+    stream: dict,
+    *,
+    output_directory: str | Path | None = None,
+) -> str:
+    """Losslessly copy one embedded PGS stream to a standalone SUP file."""
+    ffmpeg_path = _check_tool(FFMPEG_PATH, "ffmpeg")
+    stream_index = stream.get("index")
+    if stream_index is None:
+        raise RuntimeError("Selected PGS subtitle stream has no stream index.")
+    if not is_pgs_stream(stream):
+        codec_name = str(stream.get("codec_name", "unknown"))
+        raise RuntimeError(
+            f"Subtitle track #{stream_index} uses '{codec_name}', not PGS."
+        )
+
+    source = Path(input_path).expanduser().resolve()
+    output_dir = (
+        Path(output_directory).expanduser()
+        if output_directory
+        else Path(tempfile.mkdtemp(prefix="subtitle_extractor_"))
+    )
+    output_dir.mkdir(parents=True, exist_ok=True)
+    profile = stream_language(stream) or languages.UNKNOWN_LANGUAGE
+    output_path = (
+        output_dir
+        / f"{source.stem}.{profile.code}.track-{stream_index}.sup"
+    )
+    command = [
+        ffmpeg_path,
+        "-y",
+        "-i",
+        str(source),
+        "-map",
+        f"0:{stream_index}",
+        "-c:s",
+        "copy",
+        str(output_path),
+    ]
+    result = subprocess.run(
+        command,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(
+            f"ffmpeg failed to preserve PGS track #{stream_index}:\n"
+            f"{result.stderr.strip()}"
+        )
+    if not output_path.is_file() or output_path.stat().st_size == 0:
+        raise RuntimeError(
+            f"PGS track #{stream_index} produced an empty SUP file."
+        )
+    return str(output_path)
 
 
 def find_external_subtitles(

@@ -1471,8 +1471,12 @@ def test_mpv_launch_uses_detached_direct_arguments() -> tuple[bool, str]:
 
         original_resolve = media_launcher.resolve_mpv_executable
         original_popen = media_launcher.subprocess.Popen
+        original_roles = media_launcher._subtitle_role_options
         try:
             media_launcher.resolve_mpv_executable = lambda: "/fake/bin/mpv"
+            media_launcher._subtitle_role_options = (
+                lambda _path: ("--sid=auto", "--secondary-sid=auto")
+            )
 
             def fake_popen(args, **kwargs):
                 captured["args"] = args
@@ -1484,8 +1488,19 @@ def test_mpv_launch_uses_detached_direct_arguments() -> tuple[bool, str]:
         finally:
             media_launcher.resolve_mpv_executable = original_resolve
             media_launcher.subprocess.Popen = original_popen
+            media_launcher._subtitle_role_options = original_roles
 
-        if captured.get("args") != ["/fake/bin/mpv", "--", str(media.resolve())]:
+        expected_args = [
+            "/fake/bin/mpv",
+            "--sid=auto",
+            "--secondary-sid=auto",
+            "--sub-pos=88",
+            "--secondary-sub-pos=12",
+            "--secondary-sub-visibility=yes",
+            "--",
+            str(media.resolve()),
+        ]
+        if captured.get("args") != expected_args:
             return False, f"Unexpected mpv argument list: {captured.get('args')}"
         kwargs = captured.get("kwargs", {})
         if not isinstance(kwargs, dict) or not kwargs.get("start_new_session"):

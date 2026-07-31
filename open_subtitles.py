@@ -191,7 +191,13 @@ def test_api_key(api_key: str) -> None:
     """Validate an API key without searching for or downloading a subtitle."""
     if not api_key.strip():
         raise OpenSubtitlesError("OpenSubtitles API key is required.")
-    _request_json("GET", "/infos/languages", api_key.strip())
+    _request_json(
+        "GET",
+        "/infos/languages",
+        api_key.strip(),
+        timeout_seconds=8.0,
+        max_attempts=1,
+    )
 
 
 def _add_hash_chunk(total: int, data: bytes) -> int:
@@ -509,8 +515,12 @@ def _request_json(
     body: dict[str, Any] | None = None,
     cancellation_token: CancellationToken | None = None,
     event_callback: Callable[[str, dict[str, Any]], None] | None = None,
+    timeout_seconds: float = 30.0,
+    max_attempts: int = _MAX_API_ATTEMPTS,
 ) -> dict[str, Any]:
     """Send a JSON request to the OpenSubtitles REST API."""
+    timeout_seconds = max(1.0, float(timeout_seconds))
+    max_attempts = max(1, int(max_attempts))
     url = f"{BASE_URL}{path}"
     if query:
         url = f"{url}?{urllib.parse.urlencode(query)}"
@@ -525,7 +535,7 @@ def _request_json(
         data = json.dumps(body).encode("utf-8")
         headers["Content-Type"] = "application/json"
 
-    for attempt in range(1, _MAX_API_ATTEMPTS + 1):
+    for attempt in range(1, max_attempts + 1):
         if cancellation_token:
             cancellation_token.raise_if_cancelled()
         request = urllib.request.Request(  # noqa: S310
@@ -538,7 +548,7 @@ def _request_json(
             # BASE_URL is a fixed OpenSubtitles HTTPS endpoint.
             with urllib.request.urlopen(  # noqa: S310  # nosec B310
                 request,
-                timeout=30,
+                timeout=timeout_seconds,
                 context=network_tls.verified_ssl_context(),
             ) as response:
                 payload = _read_limited(
@@ -557,7 +567,7 @@ def _request_json(
         except urllib.error.HTTPError as exc:
             body_text = exc.read(64 * 1024).decode("utf-8", errors="replace")
             message = _error_message(body_text) or exc.reason
-            if exc.code in _RETRYABLE_STATUS_CODES and attempt < _MAX_API_ATTEMPTS:
+            if exc.code in _RETRYABLE_STATUS_CODES and attempt < max_attempts:
                 retry_after = (
                     exc.headers.get("Retry-After") if exc.headers else None
                 )
@@ -584,7 +594,7 @@ def _request_json(
                 f"OpenSubtitles API error {exc.code}: {message}"
             ) from exc
         except (urllib.error.URLError, TimeoutError) as exc:
-            if attempt < _MAX_API_ATTEMPTS:
+            if attempt < max_attempts:
                 delay = _retry_delay(None, attempt)
                 print(
                     "Could not reach OpenSubtitles; "

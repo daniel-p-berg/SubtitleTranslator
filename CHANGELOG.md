@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.9.0-beta.10
+
+- Stopped Automatic mode from falling through to a paid OpenAI translation
+  without an explicit user action.
+- Added a review pause when no OpenSubtitles candidate can be selected safely,
+  including timing-rejection details, the full result list, and a one-click
+  Translate action with an estimated cost reminder.
+- Separated explicitly approved recursive media folders from exact recent-file
+  history, preventing a chosen file's parent folder from becoming a scan root.
+- Migrated legacy mixed folder history conservatively and kept recent selected
+  and generated media available without scanning their surrounding folders.
+
+## 0.9.0-beta.9
+
+- Preserved one full, primary embedded PGS source subtitle when no clean text
+  source is available, without OCR or image re-encoding.
+- Made the app's mpv launcher inspect subtitle formats and explicitly place PGS
+  as the primary track and translated text as the top secondary track.
+- Prevented the launcher from automatically pairing two bitmap subtitle tracks,
+  which would render in their authored positions and could overlap.
+- Reduced the OpenSubtitles connection test to one request with an eight-second
+  timeout while retaining normal retries for searches and downloads.
+
 ## 0.9.0-beta.8
 
 - Removed all Keychain secret reads and writes from application startup.

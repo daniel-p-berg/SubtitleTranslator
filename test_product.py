@@ -25,16 +25,19 @@ import diagnostics
 import extractor
 import i18n
 import languages
+import media_launcher
 import muxer
 import mpv_config
 import network_tls
 import open_subtitles
+import pipeline
 from operation_control import (
     CancellationToken,
     OperationCancelled,
     run_process,
 )
 import settings
+import subtitle_sync
 import translation_cost
 import translator
 from tools import build_translations
@@ -329,6 +332,68 @@ class InterfaceLocalizationTests(unittest.TestCase):
 
 
 class PrivacyAndSettingsTests(unittest.TestCase):
+    def test_version_four_media_locations_migrate_to_broad_scan_roots(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            library = root / "Media Library"
+            first_release = library / "First Release"
+            unrelated_release = root / "Other Location" / "Second Release"
+            path = root / "settings.json"
+            path.write_text(
+                json.dumps(
+                    {
+                        **settings.DEFAULT_SETTINGS,
+                        "version": 4,
+                        "media_locations": [
+                            str(first_release),
+                            str(unrelated_release),
+                            str(library),
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            store = settings.SettingsStore(path)
+            loaded = store.load()
+            store.save(loaded)
+            persisted = json.loads(path.read_text(encoding="utf-8"))
+
+        self.assertEqual(loaded["media_locations"], [str(library)])
+        self.assertEqual(loaded["recent_media_files"], [])
+        self.assertEqual(
+            persisted["version"],
+            settings.DEFAULT_SETTINGS["version"],
+        )
+
+    def test_remembering_a_file_does_not_approve_its_parent_for_scanning(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            approved = root / "Approved"
+            selected = root / "One Release" / "Movie.mkv"
+            approved.mkdir()
+            selected.parent.mkdir()
+            selected.write_bytes(b"media")
+            store = settings.SettingsStore(root / "settings.json")
+            store.save(
+                {
+                    **settings.DEFAULT_SETTINGS,
+                    "media_locations": [str(approved)],
+                }
+            )
+
+            loaded = store.remember_media_file(selected)
+
+        self.assertEqual(loaded["media_locations"], [str(approved)])
+        self.assertEqual(
+            loaded["recent_media_files"],
+            [str(selected.resolve())],
+        )
+
     def test_secret_store_caches_successful_keychain_reads(self) -> None:
         with (
             mock.patch.dict(
@@ -670,6 +735,37 @@ class DependencySetupTests(unittest.TestCase):
 
 
 class MediaDiscoveryTests(unittest.TestCase):
+    def test_recent_files_do_not_expand_into_implicit_parent_scans(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            approved = root / "Approved"
+            selected_parent = root / "Selected Release"
+            approved.mkdir()
+            selected_parent.mkdir()
+            approved_media = approved / "Library Movie.mkv"
+            selected_media = selected_parent / "Selected Movie.mkv"
+            unselected_sibling = selected_parent / "Private Sibling.mkv"
+            approved_media.write_bytes(b"approved")
+            selected_media.write_bytes(b"selected")
+            unselected_sibling.write_bytes(b"sibling")
+
+            with mock.patch.object(
+                media_launcher.app_paths,
+                "iter_files_recursive",
+                wraps=app_paths.iter_files_recursive,
+            ) as recursive_scan:
+                found = media_launcher.recent_media_files(
+                    [approved],
+                    files=[selected_media],
+                    limit=10,
+                )
+
+        self.assertEqual(
+            {path.name for path in found},
+            {"Library Movie.mkv", "Selected Movie.mkv"},
+        )
+        recursive_scan.assert_called_once_with(approved)
+
     def test_sidecar_source_can_be_korean_in_nested_folder(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             release = Path(temporary) / "Drama"
@@ -832,6 +928,240 @@ class MediaDiscoveryTests(unittest.TestCase):
 
 
 class ApiAndTranslationTests(unittest.TestCase):
+    @staticmethod
+    def _candidate(file_id: int) -> open_subtitles.SubtitleCandidate:
+        return open_subtitles.SubtitleCandidate(
+            file_id=file_id,
+            release_name=f"Movie.Release.{file_id}",
+            file_name=f"movie.{file_id}.srt",
+            language="vi",
+            download_count=10,
+            rating=8.0,
+            trusted=True,
+            source={},
+        )
+
+    def test_automatic_mode_requires_approval_before_translation(self) -> None:
+        candidate = self._candidate(10)
+        search_result = open_subtitles.SubtitleSearchResult(
+            query="Movie",
+            candidates=(candidate,),
+            automatic_matches=(),
+            matched_by_hash=False,
+        )
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            video = root / "Movie.mkv"
+            reference_path = root / "source.en.srt"
+            video.write_bytes(b"media")
+            reference_path.write_text(SRT, encoding="utf-8")
+            reference = pipeline._Reference(
+                str(reference_path),
+                "en",
+                "English",
+                True,
+            )
+            options = pipeline.PipelineOptions(
+                video_path=str(video),
+                target_language="vi",
+                strategy="automatic",
+                openai_api_key="openai-key",
+                opensubtitles_api_key="search-key",
+            )
+            worker = pipeline.SubtitlePipeline()
+
+            with (
+                mock.patch.object(
+                    open_subtitles,
+                    "search_results",
+                    return_value=search_result,
+                ),
+                mock.patch.object(translator, "translate_srt") as translate,
+            ):
+                with self.assertRaises(
+                    pipeline.CandidateReviewRequired
+                ) as raised:
+                    worker._resolve_target(
+                        video,
+                        [],
+                        reference,
+                        options,
+                        root,
+                    )
+
+        self.assertTrue(raised.exception.allow_translation)
+        self.assertEqual(raised.exception.result.candidates, (candidate,))
+        translate.assert_not_called()
+
+    def test_explicit_translation_still_runs_after_review_approval(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            video = root / "Movie.mkv"
+            reference_path = root / "source.en.srt"
+            video.write_bytes(b"media")
+            reference_path.write_text(SRT, encoding="utf-8")
+            reference = pipeline._Reference(
+                str(reference_path),
+                "en",
+                "English",
+                True,
+            )
+            options = pipeline.PipelineOptions(
+                video_path=str(video),
+                target_language="vi",
+                strategy="translate",
+                openai_api_key="openai-key",
+            )
+            worker = pipeline.SubtitlePipeline()
+
+            with mock.patch.object(
+                translator,
+                "translate_srt",
+                return_value=TRANSLATED_SRT,
+            ) as translate:
+                target = worker._resolve_target(
+                    video,
+                    [],
+                    reference,
+                    options,
+                    root,
+                )
+
+        self.assertEqual(target.origin, "translation")
+        translate.assert_called_once()
+
+    def test_automatic_mode_keeps_clear_error_when_review_has_no_actions(
+        self,
+    ) -> None:
+        search_result = open_subtitles.SubtitleSearchResult(
+            query="Movie",
+            candidates=(),
+            automatic_matches=(),
+            matched_by_hash=False,
+        )
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            video = root / "Movie.mkv"
+            video.write_bytes(b"media")
+            options = pipeline.PipelineOptions(
+                video_path=str(video),
+                target_language="vi",
+                strategy="automatic",
+                opensubtitles_api_key="search-key",
+            )
+            worker = pipeline.SubtitlePipeline()
+
+            with (
+                mock.patch.object(
+                    open_subtitles,
+                    "search_results",
+                    return_value=search_result,
+                ),
+                mock.patch.object(
+                    extractor,
+                    "extract_image_subtitle_timings",
+                    return_value=([subtitle_sync.CueTiming(0, 1000)], "PGS"),
+                ),
+            ):
+                with self.assertRaisesRegex(RuntimeError, "image-based"):
+                    worker._resolve_target(
+                        video,
+                        [],
+                        None,
+                        options,
+                        root,
+                    )
+
+    def test_rejected_timing_candidates_return_to_review(self) -> None:
+        first = self._candidate(10)
+        second = self._candidate(20)
+        result = open_subtitles.SubtitleSearchResult(
+            query="Movie",
+            candidates=(first, second),
+            automatic_matches=(first,),
+            matched_by_hash=False,
+        )
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            video = root / "Movie.mkv"
+            reference_path = root / "source.en.srt"
+            target_path = root / "target.vi.srt"
+            alternate_path = root / "alternate.vi.srt"
+            video.write_bytes(b"media")
+            reference_path.write_text(SRT, encoding="utf-8")
+            target_path.write_text(TRANSLATED_SRT, encoding="utf-8")
+            alternate_path.write_text(TRANSLATED_SRT, encoding="utf-8")
+            reference = pipeline._Reference(
+                str(reference_path),
+                "en",
+                "English",
+                True,
+            )
+            target = pipeline._Target(
+                str(target_path),
+                "OpenSubtitles",
+                False,
+                (first, second),
+                first.file_id,
+                result,
+            )
+            options = pipeline.PipelineOptions(
+                video_path=str(video),
+                target_language="vi",
+                strategy="automatic",
+                openai_api_key="openai-key",
+                opensubtitles_api_key="search-key",
+            )
+            low_confidence = subtitle_sync.SyncResult(
+                str(target_path),
+                False,
+                "none",
+                "timing mismatch",
+                "low",
+            )
+            worker = pipeline.SubtitlePipeline()
+
+            with (
+                mock.patch.object(
+                    worker,
+                    "_sync_target",
+                    return_value=low_confidence,
+                ),
+                mock.patch.object(
+                    open_subtitles,
+                    "download_subtitle",
+                    return_value=str(alternate_path),
+                ),
+                mock.patch.object(
+                    worker,
+                    "_normalize_subtitle",
+                    return_value=str(alternate_path),
+                ),
+            ):
+                with self.assertRaises(
+                    pipeline.CandidateReviewRequired
+                ) as raised:
+                    worker._sync_or_retry(
+                        video,
+                        target,
+                        reference,
+                        options,
+                        root,
+                    )
+
+        self.assertTrue(raised.exception.allow_translation)
+        self.assertEqual(
+            raised.exception.result.candidates,
+            (first, second),
+        )
+        self.assertEqual(
+            raised.exception.rejection_reasons,
+            {
+                first.file_id: "timing mismatch",
+                second.file_id: "timing mismatch",
+            },
+        )
+
     def test_search_uses_selected_target_language(self) -> None:
         calls: list[dict] = []
 
@@ -1045,7 +1375,7 @@ class ApiAndTranslationTests(unittest.TestCase):
             [],
         )
 
-    def test_opensubtitles_retries_rate_limit_but_not_auth_failure(self) -> None:
+    def test_opensubtitles_retries_normal_requests_but_not_auth_failure(self) -> None:
         class FakeResponse(BytesIO):
             headers: dict[str, str] = {}
 
@@ -1073,7 +1403,11 @@ class ApiAndTranslationTests(unittest.TestCase):
             ) as urlopen,
             mock.patch.object(open_subtitles.time, "sleep") as sleep,
         ):
-            open_subtitles.test_api_key("key")
+            open_subtitles._request_json(
+                "GET",
+                "/infos/languages",
+                "key",
+            )
         self.assertEqual(urlopen.call_count, 2)
         sleep.assert_called_once_with(0.0)
 
@@ -1088,7 +1422,11 @@ class ApiAndTranslationTests(unittest.TestCase):
             ) as urlopen,
             mock.patch.object(open_subtitles.time, "sleep") as sleep,
         ):
-            open_subtitles.test_api_key("key")
+            open_subtitles._request_json(
+                "GET",
+                "/infos/languages",
+                "key",
+            )
         self.assertEqual(urlopen.call_count, 2)
         sleep.assert_called_once_with(1.0)
 
@@ -1110,6 +1448,22 @@ class ApiAndTranslationTests(unittest.TestCase):
             with self.assertRaises(open_subtitles.OpenSubtitlesError):
                 open_subtitles.test_api_key("key")
         self.assertEqual(urlopen.call_count, 1)
+        sleep.assert_not_called()
+
+    def test_opensubtitles_connection_test_is_fast_and_does_not_retry(self) -> None:
+        with (
+            mock.patch.object(
+                open_subtitles.urllib.request,
+                "urlopen",
+                side_effect=TimeoutError("timed out"),
+            ) as urlopen,
+            mock.patch.object(open_subtitles.time, "sleep") as sleep,
+        ):
+            with self.assertRaises(open_subtitles.OpenSubtitlesError):
+                open_subtitles.test_api_key("key")
+
+        self.assertEqual(urlopen.call_count, 1)
+        self.assertEqual(urlopen.call_args.kwargs["timeout"], 8.0)
         sleep.assert_not_called()
 
     def test_opensubtitles_rejects_unsafe_url_and_oversized_archive_entry(self) -> None:
@@ -1158,6 +1512,148 @@ class ApiAndTranslationTests(unittest.TestCase):
 
 
 class MuxTests(unittest.TestCase):
+    def test_playback_pgs_picker_prefers_full_default_source_track(self) -> None:
+        streams = [
+            {
+                "index": 2,
+                "codec_name": "hdmv_pgs_subtitle",
+                "tags": {"language": "eng"},
+                "disposition": {"default": 1},
+            },
+            {
+                "index": 3,
+                "codec_name": "hdmv_pgs_subtitle",
+                "tags": {"language": "eng", "title": "English Forced"},
+                "disposition": {"forced": 1},
+            },
+            {
+                "index": 4,
+                "codec_name": "hdmv_pgs_subtitle",
+                "tags": {"language": "eng"},
+                "disposition": {"default": 0},
+            },
+            {
+                "index": 5,
+                "codec_name": "hdmv_pgs_subtitle",
+                "tags": {"language": "vie"},
+                "disposition": {"default": 0},
+            },
+        ]
+
+        selected = extractor.pick_playback_pgs_stream(
+            streams,
+            preferred_language="en",
+            excluded_language="vi",
+        )
+
+        self.assertIsNotNone(selected)
+        self.assertEqual(selected["index"], 2)
+
+    def test_pgs_playback_track_is_primary_and_target_text_is_secondary(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            pgs = root / "source.en.sup"
+            target = root / "target.vi.srt"
+            pgs.write_bytes(b"pgs")
+            target.write_text(TRANSLATED_SRT, encoding="utf-8")
+
+            tracks = pipeline.SubtitlePipeline._build_merge_tracks(
+                str(target),
+                languages.get_language("vi"),
+                None,
+                pipeline._PlaybackReference(
+                    str(pgs),
+                    "en",
+                    "embedded English PGS track 2",
+                ),
+            )
+
+        self.assertEqual([track.language_code for track in tracks], ["en", "vi"])
+        self.assertTrue(tracks[0].default)
+        self.assertFalse(tracks[1].default)
+        self.assertEqual(tracks[0].title, "English (PGS)")
+
+    def test_mpv_launcher_explicitly_selects_dual_subtitle_roles(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            media = Path(temporary) / "Movie.mkv"
+            media.write_bytes(b"media")
+            process = SimpleNamespace(pid=42, wait=lambda: 0)
+
+            with (
+                mock.patch.object(
+                    media_launcher,
+                    "resolve_mpv_executable",
+                    return_value="/fake/mpv",
+                ),
+                mock.patch.object(
+                    media_launcher,
+                    "_subtitle_role_options",
+                    return_value=("--sid=1", "--secondary-sid=2"),
+                ),
+                mock.patch.object(
+                    media_launcher.subprocess,
+                    "Popen",
+                    return_value=process,
+                ) as popen,
+                mock.patch.object(media_launcher.threading, "Thread") as thread,
+            ):
+                media_launcher.launch_in_mpv(media)
+
+        arguments = popen.call_args.args[0]
+        self.assertEqual(arguments[0], "/fake/mpv")
+        self.assertIn("--sid=1", arguments)
+        self.assertIn("--secondary-sid=2", arguments)
+        self.assertIn("--sub-pos=88", arguments)
+        self.assertIn("--secondary-sub-pos=12", arguments)
+        self.assertEqual(arguments[-2:], ["--", str(media.resolve())])
+        thread.assert_called_once()
+
+    def test_mpv_roles_put_pgs_primary_and_text_secondary(self) -> None:
+        streams = [
+            {
+                "codec_type": "subtitle",
+                "codec_name": "hdmv_pgs_subtitle",
+                "disposition": {"default": 1},
+                "tags": {"language": "eng"},
+            },
+            {
+                "codec_type": "subtitle",
+                "codec_name": "subrip",
+                "disposition": {"default": 0},
+                "tags": {"language": "vie"},
+            },
+        ]
+        with mock.patch.object(
+            media_launcher,
+            "_probe_subtitle_streams",
+            return_value=streams,
+        ):
+            options = media_launcher._subtitle_role_options("/tmp/movie.mkv")
+
+        self.assertEqual(options, ("--sid=1", "--secondary-sid=2"))
+
+    def test_mpv_does_not_auto_select_a_second_bitmap_track(self) -> None:
+        streams = [
+            {
+                "codec_type": "subtitle",
+                "codec_name": "hdmv_pgs_subtitle",
+                "disposition": {"default": 1},
+            },
+            {
+                "codec_type": "subtitle",
+                "codec_name": "hdmv_pgs_subtitle",
+                "disposition": {"default": 0},
+            },
+        ]
+        with mock.patch.object(
+            media_launcher,
+            "_probe_subtitle_streams",
+            return_value=streams,
+        ):
+            options = media_launcher._subtitle_role_options("/tmp/movie.mkv")
+
+        self.assertEqual(options, ("--sid=1", "--secondary-sid=no"))
+
     def test_mkvmerge_command_uses_language_metadata_and_clean_tracks(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
