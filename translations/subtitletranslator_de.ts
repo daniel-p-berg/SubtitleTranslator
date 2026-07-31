@@ -1123,10 +1123,6 @@ Open setup instructions?</source>
       <translation>Entfernen Sie beide API-Anmeldeinformationen von macOS Keychain ?</translation>
     </message>
     <message>
-      <source>Not tested</source>
-      <translation>Nicht getestet</translation>
-    </message>
-    <message>
       <source>Stored in Keychain</source>
       <translation>Aufbewahrt in Keychain</translation>
     </message>
@@ -1213,22 +1209,6 @@ Open setup instructions?</source>
     <message>
       <source>ready</source>
       <translation>Bereit</translation>
-    </message>
-    <message>
-      <source>Credential Migration</source>
-      <translation>Qualifizierungsmigration</translation>
-    </message>
-    <message>
-      <source>Credential migration failed: {error}</source>
-      <translation>Die Zulassungsmigration ist gescheitert: {error}</translation>
-    </message>
-    <message>
-      <source>Credentials Secured</source>
-      <translation>Befugnisse gesichert</translation>
-    </message>
-    <message>
-      <source>Existing API credentials were moved into macOS Keychain.</source>
-      <translation>Die bestehenden API-Zertifikate wurden in macOS Keychain übertragen .</translation>
     </message>
     <message>
       <source>The developer does not collect your data</source>

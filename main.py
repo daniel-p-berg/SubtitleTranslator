@@ -22,7 +22,7 @@ import settings
 from ui import MainWindow, apply_application_style
 
 
-APP_VERSION = "0.9.0-beta.7"
+APP_VERSION = "0.9.0-beta.8"
 
 
 def _choose_first_run_language(

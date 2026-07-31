@@ -1123,10 +1123,6 @@ Buka instruksi pengaturan?</translation>
       <translation>Menghapus kedua kredensial API dari macOS Keychain ?</translation>
     </message>
     <message>
-      <source>Not tested</source>
-      <translation>Tidak diuji</translation>
-    </message>
-    <message>
       <source>Stored in Keychain</source>
       <translation>Disimpan di Keychain</translation>
     </message>
@@ -1213,22 +1209,6 @@ Buka instruksi pengaturan?</translation>
     <message>
       <source>ready</source>
       <translation>siap</translation>
-    </message>
-    <message>
-      <source>Credential Migration</source>
-      <translation>Migrasi Sertifikat</translation>
-    </message>
-    <message>
-      <source>Credential migration failed: {error}</source>
-      <translation>Migrasi kredit gagal: {error}</translation>
-    </message>
-    <message>
-      <source>Credentials Secured</source>
-      <translation>Kredensial Diamankan</translation>
-    </message>
-    <message>
-      <source>Existing API credentials were moved into macOS Keychain.</source>
-      <translation>Sertifikat API yang ada dipindahkan ke macOS Keychain .</translation>
     </message>
     <message>
       <source>The developer does not collect your data</source>

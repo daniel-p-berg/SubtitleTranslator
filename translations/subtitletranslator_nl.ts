@@ -1123,10 +1123,6 @@ Open installatie instructies?</translation>
       <translation>Beide API-gegevens van macOS Keychain verwijderen ?</translation>
     </message>
     <message>
-      <source>Not tested</source>
-      <translation>Niet getest</translation>
-    </message>
-    <message>
       <source>Stored in Keychain</source>
       <translation>Gestoord in Keychain</translation>
     </message>
@@ -1213,22 +1209,6 @@ Open installatie instructies?</translation>
     <message>
       <source>ready</source>
       <translation>Klaar</translation>
-    </message>
-    <message>
-      <source>Credential Migration</source>
-      <translation>Bevoegdheidsmigratie</translation>
-    </message>
-    <message>
-      <source>Credential migration failed: {error}</source>
-      <translation>Er is geen geldigheid in de migratie: {error}</translation>
-    </message>
-    <message>
-      <source>Credentials Secured</source>
-      <translation>Bewijsgegevens gewaarborgd</translation>
-    </message>
-    <message>
-      <source>Existing API credentials were moved into macOS Keychain.</source>
-      <translation>Bestaande API-credentiaals zijn verplaatst naar macOS Keychain .</translation>
     </message>
     <message>
       <source>The developer does not collect your data</source>

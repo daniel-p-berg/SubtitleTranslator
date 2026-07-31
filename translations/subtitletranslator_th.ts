@@ -1123,10 +1123,6 @@ Open setup instructions?</source>
       <translation>ยกใบรับรอง API จาก macOS Keychain</translation>
     </message>
     <message>
-      <source>Not tested</source>
-      <translation>ไม่ผ่านการทดสอบ</translation>
-    </message>
-    <message>
       <source>Stored in Keychain</source>
       <translation>จัดเก็บใน Keychain</translation>
     </message>
@@ -1213,22 +1209,6 @@ Open setup instructions?</source>
     <message>
       <source>ready</source>
       <translation>เตรียม</translation>
-    </message>
-    <message>
-      <source>Credential Migration</source>
-      <translation>การขบวนการขบวนการ</translation>
-    </message>
-    <message>
-      <source>Credential migration failed: {error}</source>
-      <translation>การย้ายใบรับรองผิดพลาด: {error}</translation>
-    </message>
-    <message>
-      <source>Credentials Secured</source>
-      <translation>เอกสารรับรอง</translation>
-    </message>
-    <message>
-      <source>Existing API credentials were moved into macOS Keychain.</source>
-      <translation>เอกสารรับรอง API ที่มีอยู่ถูกย้ายไปยัง macOS Keychain</translation>
     </message>
     <message>
       <source>The developer does not collect your data</source>

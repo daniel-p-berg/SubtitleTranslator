@@ -1123,10 +1123,6 @@ Open setup instructions?</source>
       <translation>إزالة كل من إثباتات API من macOS Keychain ؟</translation>
     </message>
     <message>
-      <source>Not tested</source>
-      <translation>لم يتم اختبارها</translation>
-    </message>
-    <message>
       <source>Stored in Keychain</source>
       <translation>مخزن في Keychain</translation>
     </message>
@@ -1213,22 +1209,6 @@ Open setup instructions?</source>
     <message>
       <source>ready</source>
       <translation>جاهز</translation>
-    </message>
-    <message>
-      <source>Credential Migration</source>
-      <translation>الهجرة المؤهلة</translation>
-    </message>
-    <message>
-      <source>Credential migration failed: {error}</source>
-      <translation>الهجرة الإئتمانية فشلت: {error}</translation>
-    </message>
-    <message>
-      <source>Credentials Secured</source>
-      <translation>الإثباتات الآمنة</translation>
-    </message>
-    <message>
-      <source>Existing API credentials were moved into macOS Keychain.</source>
-      <translation>تم نقلها إلى macOS Keychain .</translation>
     </message>
     <message>
       <source>The developer does not collect your data</source>

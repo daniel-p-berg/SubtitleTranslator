@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.9.0-beta.8
+
+- Removed all Keychain secret reads and writes from application startup.
+- Replaced delete-and-recreate credential updates with an in-place macOS
+  Keychain update, so **Allow** grants the current request as expected.
+- Changed setup connection tests to access only the provider being tested.
+- Added metadata-only credential status checks and safe cleanup of confirmed
+  legacy plaintext duplicates.
+- Limited each workflow to the API credentials it can actually use.
+
 ## 0.9.0-beta.7
 
 - Prevented repeated macOS Keychain prompts by caching each successful

@@ -61,7 +61,10 @@ jobs:
           QT_QPA_PLATFORM: offscreen
         run: |
           python - <<'PY'
+          from unittest import mock
+
           import i18n
+          import settings
           from PySide6.QtWidgets import QApplication
           from open_subtitles import SubtitleCandidate, SubtitleSearchResult
           from ui import CandidateDialog, MainWindow, apply_application_style
@@ -70,8 +73,19 @@ jobs:
           i18n.install_translators(application, "ar")
           apply_application_style(application)
           MainWindow._show_first_run = lambda self: None
-          MainWindow._migrate_legacy_credentials = lambda self: None
-          window = MainWindow("ci")
+          with (
+              mock.patch.object(
+                  settings.SecretStore,
+                  "get",
+                  side_effect=AssertionError("startup read a Keychain secret"),
+              ),
+              mock.patch.object(
+                  settings.SecretStore,
+                  "set",
+                  side_effect=AssertionError("startup wrote a Keychain secret"),
+              ),
+          ):
+              window = MainWindow("ci")
           window.show()
           application.processEvents()
           assert window.tabs.count() == 3

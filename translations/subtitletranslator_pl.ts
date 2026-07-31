@@ -1123,10 +1123,6 @@ Otwórz instrukcje konfiguracji?</translation>
       <translation>Usunięcie zarówno uwierzytelniania API z macOS Keychain ?</translation>
     </message>
     <message>
-      <source>Not tested</source>
-      <translation>Nie przetestowane</translation>
-    </message>
-    <message>
       <source>Stored in Keychain</source>
       <translation>Przechowywane w Keychain</translation>
     </message>
@@ -1213,22 +1209,6 @@ Otwórz instrukcje konfiguracji?</translation>
     <message>
       <source>ready</source>
       <translation>gotowy</translation>
-    </message>
-    <message>
-      <source>Credential Migration</source>
-      <translation>Migracja akredytacyjna</translation>
-    </message>
-    <message>
-      <source>Credential migration failed: {error}</source>
-      <translation>Migracja uwierzytelniająca nie powiodła się: {error}</translation>
-    </message>
-    <message>
-      <source>Credentials Secured</source>
-      <translation>Poświadczenia zabezpieczone</translation>
-    </message>
-    <message>
-      <source>Existing API credentials were moved into macOS Keychain.</source>
-      <translation>Istniejące akredytacje API zostały przeniesione do macOS Keychain .</translation>
     </message>
     <message>
       <source>The developer does not collect your data</source>

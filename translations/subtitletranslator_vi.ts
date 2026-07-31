@@ -1123,10 +1123,6 @@ mở hướng dẫn thiết lập?</translation>
       <translation>Xóa cả hai khóa API khỏi macOS Keychain?</translation>
     </message>
     <message>
-      <source>Not tested</source>
-      <translation>Chưa kiểm tra</translation>
-    </message>
-    <message>
       <source>Stored in Keychain</source>
       <translation>Được lưu trữ trong Keychain</translation>
     </message>
@@ -1213,22 +1209,6 @@ mở hướng dẫn thiết lập?</translation>
     <message>
       <source>ready</source>
       <translation>sẵn sàng</translation>
-    </message>
-    <message>
-      <source>Credential Migration</source>
-      <translation>Di chuyển bằng chứng</translation>
-    </message>
-    <message>
-      <source>Credential migration failed: {error}</source>
-      <translation>Di chuyển bằng chứng thất bại: {error}</translation>
-    </message>
-    <message>
-      <source>Credentials Secured</source>
-      <translation>Đã bảo mật khóa API</translation>
-    </message>
-    <message>
-      <source>Existing API credentials were moved into macOS Keychain.</source>
-      <translation>Các khóa API hiện có đã được chuyển vào macOS Keychain.</translation>
     </message>
     <message>
       <source>The developer does not collect your data</source>

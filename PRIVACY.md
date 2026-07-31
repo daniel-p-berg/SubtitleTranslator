@@ -20,12 +20,14 @@ Keychain under the service name:
 com.danielpberg.SubtitleTranslator
 ```
 
-Keys are held in memory only while making a direct request to the selected
-provider. They are not written to the settings file, logs, job summaries, media
-files, subtitle files, or diagnostics.
+After an approved read, keys are held in memory for the remainder of that app
+launch and used only for direct requests to the selected provider. They are not
+written to the settings file, logs, job summaries, media files, subtitle files,
+or diagnostics.
 
-Legacy plaintext credentials are migrated to Keychain before the old credential
-fields are removed.
+The app checks only Keychain item metadata during startup. A legacy plaintext
+credential is removed automatically only after a matching Keychain item is
+confirmed to exist, without reading either secret.
 
 ## Local Data
 

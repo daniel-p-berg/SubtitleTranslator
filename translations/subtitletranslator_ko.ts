@@ -1123,10 +1123,6 @@ Open setup instructions?</source>
       <translation>macOS Keychain에서 두 개의 API 자격증을 제거합니까 ?</translation>
     </message>
     <message>
-      <source>Not tested</source>
-      <translation>시험되지 않은</translation>
-    </message>
-    <message>
       <source>Stored in Keychain</source>
       <translation>Keychain에서 보관합니다</translation>
     </message>
@@ -1213,22 +1209,6 @@ Open setup instructions?</source>
     <message>
       <source>ready</source>
       <translation>준비</translation>
-    </message>
-    <message>
-      <source>Credential Migration</source>
-      <translation>자격증 이주</translation>
-    </message>
-    <message>
-      <source>Credential migration failed: {error}</source>
-      <translation>자격증 마이그레이션 실패: {error}</translation>
-    </message>
-    <message>
-      <source>Credentials Secured</source>
-      <translation>자격증 확보</translation>
-    </message>
-    <message>
-      <source>Existing API credentials were moved into macOS Keychain.</source>
-      <translation>기존 API 자격증은 macOS Keychain에 이전되었습니다 .</translation>
     </message>
     <message>
       <source>The developer does not collect your data</source>

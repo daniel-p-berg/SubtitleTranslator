@@ -1123,10 +1123,6 @@ Open setup instructions?</source>
       <translation>هر دو سند API رو از macOS Keychain حذف کنين ؟</translation>
     </message>
     <message>
-      <source>Not tested</source>
-      <translation>آزمایش نشده</translation>
-    </message>
-    <message>
       <source>Stored in Keychain</source>
       <translation>ذخیره شده در Keychain</translation>
     </message>
@@ -1213,22 +1209,6 @@ Open setup instructions?</source>
     <message>
       <source>ready</source>
       <translation>آماده</translation>
-    </message>
-    <message>
-      <source>Credential Migration</source>
-      <translation>مهاجرت اعتبار</translation>
-    </message>
-    <message>
-      <source>Credential migration failed: {error}</source>
-      <translation>مهاجرت اسناد شکست خورده: {error}</translation>
-    </message>
-    <message>
-      <source>Credentials Secured</source>
-      <translation>اعتبارات تضمین شده</translation>
-    </message>
-    <message>
-      <source>Existing API credentials were moved into macOS Keychain.</source>
-      <translation>اسناد موجود API به macOS Keychain منتقل شد .</translation>
     </message>
     <message>
       <source>The developer does not collect your data</source>

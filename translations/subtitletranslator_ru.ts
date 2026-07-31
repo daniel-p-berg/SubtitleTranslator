@@ -1123,10 +1123,6 @@ Open setup instructions?</source>
       <translation>Убрать оба аккредитива API из macOS Keychain ?</translation>
     </message>
     <message>
-      <source>Not tested</source>
-      <translation>Не проверено</translation>
-    </message>
-    <message>
       <source>Stored in Keychain</source>
       <translation>Хранится в Keychain</translation>
     </message>
@@ -1213,22 +1209,6 @@ Open setup instructions?</source>
     <message>
       <source>ready</source>
       <translation>готовый</translation>
-    </message>
-    <message>
-      <source>Credential Migration</source>
-      <translation>Удостоверенная миграция</translation>
-    </message>
-    <message>
-      <source>Credential migration failed: {error}</source>
-      <translation>Миграция удостоверений не удалась: {error}</translation>
-    </message>
-    <message>
-      <source>Credentials Secured</source>
-      <translation>Защищены удостоверения</translation>
-    </message>
-    <message>
-      <source>Existing API credentials were moved into macOS Keychain.</source>
-      <translation>Существующие аккредитации API были перенесены в macOS Keychain .</translation>
     </message>
     <message>
       <source>The developer does not collect your data</source>

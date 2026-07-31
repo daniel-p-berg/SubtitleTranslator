@@ -35,7 +35,8 @@ into MKV without re-encoding media.
   templates.
 - `i18n.py`: interface locale detection, bilingual locale names, Qt catalog
   loading, and RTL layout direction.
-- `settings.py`: non-secret settings and macOS Keychain migration.
+- `settings.py`: non-secret settings, metadata-only credential checks, and
+  macOS Keychain storage.
 - `extractor.py`: embedded/sidecar discovery, extraction, and SRT cleaning.
 - `open_subtitles.py`: official OpenSubtitles REST API integration.
 - `translator.py`: OpenAI translation and strict SRT output validation.

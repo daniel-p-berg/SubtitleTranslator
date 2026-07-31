@@ -1123,10 +1123,6 @@ Open setup instructions?</source>
       <translation>macOS Keychain থেকে উভয় API শংসাপত্র মুছে ফেলুন ?</translation>
     </message>
     <message>
-      <source>Not tested</source>
-      <translation>পরীক্ষা করা হয়নি</translation>
-    </message>
-    <message>
       <source>Stored in Keychain</source>
       <translation>Keychain তে সংরক্ষণ করা হয়েছে</translation>
     </message>
@@ -1213,22 +1209,6 @@ Open setup instructions?</source>
     <message>
       <source>ready</source>
       <translation>প্রস্তুত</translation>
-    </message>
-    <message>
-      <source>Credential Migration</source>
-      <translation>ক্রেডিটেশনাল মাইগ্রেশন</translation>
-    </message>
-    <message>
-      <source>Credential migration failed: {error}</source>
-      <translation>ক্রেডিট্যান্স মাইগ্রেশন ব্যর্থঃ {error}</translation>
-    </message>
-    <message>
-      <source>Credentials Secured</source>
-      <translation>ক্রেডিট্যান্সাল সুরক্ষিত</translation>
-    </message>
-    <message>
-      <source>Existing API credentials were moved into macOS Keychain.</source>
-      <translation>বিদ্যমান এপিআই শংসাপত্রগুলি macOS Keychain-এ স্থানান্তরিত করা হয়েছে ।</translation>
     </message>
     <message>
       <source>The developer does not collect your data</source>

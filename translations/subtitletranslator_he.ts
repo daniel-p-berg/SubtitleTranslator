@@ -1123,10 +1123,6 @@ Open setup instructions?</source>
       <translation>להסיר את שתי תעודות האישור של האפיי מmacOS Keychain ?</translation>
     </message>
     <message>
-      <source>Not tested</source>
-      <translation>לא נבדק</translation>
-    </message>
-    <message>
       <source>Stored in Keychain</source>
       <translation>מאוחסן ב Keychain</translation>
     </message>
@@ -1213,22 +1209,6 @@ Open setup instructions?</source>
     <message>
       <source>ready</source>
       <translation>מוכנים</translation>
-    </message>
-    <message>
-      <source>Credential Migration</source>
-      <translation>מיגרת תעודות</translation>
-    </message>
-    <message>
-      <source>Credential migration failed: {error}</source>
-      <translation>ההגירה לא נכשלה: {error}</translation>
-    </message>
-    <message>
-      <source>Credentials Secured</source>
-      <translation>תעודות אישור מאובטחות</translation>
-    </message>
-    <message>
-      <source>Existing API credentials were moved into macOS Keychain.</source>
-      <translation>רשימות ה-API הקיימות הועברו ל-macOS Keychain .</translation>
     </message>
     <message>
       <source>The developer does not collect your data</source>

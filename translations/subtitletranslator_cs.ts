@@ -1123,10 +1123,6 @@ Otevřete nastavení?</translation>
       <translation>Odstranit oba průkazy z macOS Keychain ?</translation>
     </message>
     <message>
-      <source>Not tested</source>
-      <translation>Neotestované</translation>
-    </message>
-    <message>
       <source>Stored in Keychain</source>
       <translation>Uloženo v Keychain</translation>
     </message>
@@ -1213,22 +1209,6 @@ Otevřete nastavení?</translation>
     <message>
       <source>ready</source>
       <translation>Připravený</translation>
-    </message>
-    <message>
-      <source>Credential Migration</source>
-      <translation>Migrace oprávnění</translation>
-    </message>
-    <message>
-      <source>Credential migration failed: {error}</source>
-      <translation>Neúspěšná migrace oprávnění: {error}</translation>
-    </message>
-    <message>
-      <source>Credentials Secured</source>
-      <translation>Potvrzení zajištěné</translation>
-    </message>
-    <message>
-      <source>Existing API credentials were moved into macOS Keychain.</source>
-      <translation>Existující akreditace API byly přeneseny do macOS Keychain .</translation>
     </message>
     <message>
       <source>The developer does not collect your data</source>

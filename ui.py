@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import subprocess
+from contextlib import suppress
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable
@@ -1281,13 +1282,13 @@ class SetupChecklistDialog(QDialog):
                 "openai",
                 "OpenAI",
                 tr("Test Connection"),
-                self._test_connections,
+                self._test_openai_connection,
             ),
             (
                 "opensubtitles",
                 "OpenSubtitles",
                 tr("Test Connection"),
-                self._test_connections,
+                self._test_opensubtitles_connection,
             ),
             (
                 "folder",
@@ -1371,11 +1372,11 @@ class SetupChecklistDialog(QDialog):
             dependencies.required_tools_ready(),
         )
         try:
-            openai_ready = bool(
-                self.owner.secret_store.get(settings.OPENAI_SECRET)
+            openai_ready = self.owner.secret_store.has(
+                settings.OPENAI_SECRET
             )
-            opensubtitles_ready = bool(
-                self.owner.secret_store.get(settings.OPEN_SUBTITLES_SECRET)
+            opensubtitles_ready = self.owner.secret_store.has(
+                settings.OPEN_SUBTITLES_SECRET
             )
         except settings.SecretStorageError:
             openai_ready = opensubtitles_ready = False
@@ -1466,14 +1467,22 @@ class SetupChecklistDialog(QDialog):
         self.owner.tabs.setCurrentIndex(2)
         self.accept()
 
-    def _test_connections(self) -> None:
+    def _test_openai_connection(self) -> None:
+        self._test_connection("openai")
+
+    def _test_opensubtitles_connection(self) -> None:
+        self._test_connection("opensubtitles")
+
+    def _test_connection(self, provider: str) -> None:
         if self._test_worker and self._test_worker.isRunning():
             return
+        secret_name = (
+            settings.OPENAI_SECRET
+            if provider == "openai"
+            else settings.OPEN_SUBTITLES_SECRET
+        )
         try:
-            openai_key = self.owner.secret_store.get(settings.OPENAI_SECRET)
-            os_key = self.owner.secret_store.get(
-                settings.OPEN_SUBTITLES_SECRET
-            )
+            api_key = self.owner.secret_store.get(secret_name)
         except settings.SecretStorageError as exc:
             QMessageBox.critical(
                 self,
@@ -1484,46 +1493,43 @@ class SetupChecklistDialog(QDialog):
             )
             return
 
+        if not api_key:
+            self._connection_results[provider] = (
+                False,
+                tr("Not configured"),
+            )
+            self._refresh()
+            return
+
         model = self.owner.model_combo.currentText().strip()
 
         def run_tests() -> dict[str, tuple[bool, str]]:
-            results: dict[str, tuple[bool, str]] = {}
-            if openai_key:
+            if provider == "openai":
                 try:
-                    translator.test_api_key(openai_key, model)
-                    results["openai"] = (
-                        True,
-                        tr("OpenAI connection ready"),
-                    )
+                    translator.test_api_key(api_key, model)
+                    result = (True, tr("OpenAI connection ready"))
                 except Exception as exc:  # noqa: BLE001
-                    results["openai"] = (
+                    result = (
                         False,
                         tr("Connection failed: {error}").format(error=exc),
                     )
-            if os_key:
+            else:
                 try:
-                    open_subtitles.test_api_key(os_key)
-                    results["opensubtitles"] = (
-                        True,
-                        tr("OpenSubtitles connection ready"),
-                    )
+                    open_subtitles.test_api_key(api_key)
+                    result = (True, tr("OpenSubtitles connection ready"))
                 except Exception as exc:  # noqa: BLE001
-                    results["opensubtitles"] = (
+                    result = (
                         False,
                         tr("Connection failed: {error}").format(error=exc),
                     )
-            return results
+            return {provider: result}
 
         for action in self.actions.values():
             action.setEnabled(False)
         self.api_settings_button.setEnabled(False)
         self.refresh_setup_button.setEnabled(False)
         self.done_button.setEnabled(False)
-        for key in ("openai", "opensubtitles"):
-            if (key == "openai" and openai_key) or (
-                key == "opensubtitles" and os_key
-            ):
-                self.states[key].setText(tr("Testing..."))
+        self.states[provider].setText(tr("Testing..."))
         self._test_worker = FunctionThread(run_tests, self)
         self._test_worker.completed.connect(self._connections_ready)
         self._test_worker.failed.connect(self._connections_failed)
@@ -1607,8 +1613,8 @@ class MainWindow(QMainWindow):
         settings.ensure_private_directories(
             self.preferences["workspace_directory"]
         )
-        if os.environ.get("SUBTITLE_TRANSLATOR_SMOKE_TEST") != "1":
-            self._migrate_legacy_credentials()
+        with suppress(OSError, settings.SecretStorageError):
+            settings.reconcile_legacy_credentials(self.secret_store)
 
         self.setWindowTitle("SubtitleTranslator")
         self.resize(980, 760)
@@ -2432,9 +2438,20 @@ class MainWindow(QMainWindow):
                 return
 
         self._save_preferences(silent=True)
+        method = next(
+            code for code, button in self.mode_buttons.items() if button.isChecked()
+        )
         try:
-            openai_key = self.secret_store.get(settings.OPENAI_SECRET)
-            os_key = self.secret_store.get(settings.OPEN_SUBTITLES_SECRET)
+            openai_key = (
+                self.secret_store.get(settings.OPENAI_SECRET)
+                if method in {"automatic", "translate"}
+                else ""
+            )
+            os_key = (
+                self.secret_store.get(settings.OPEN_SUBTITLES_SECRET)
+                if method in {"automatic", "find"}
+                else ""
+            )
         except settings.SecretStorageError as exc:
             QMessageBox.critical(
                 self,
@@ -2445,9 +2462,6 @@ class MainWindow(QMainWindow):
             )
             return
 
-        method = next(
-            code for code, button in self.mode_buttons.items() if button.isChecked()
-        )
         target_code = self.target_combo.currentData()
         prompt = self.preferences["prompt_overrides"].get(target_code, "")
         options = pipeline.PipelineOptions(
@@ -2757,11 +2771,19 @@ class MainWindow(QMainWindow):
                     settings.OPENAI_SECRET,
                     self.openai_key.text(),
                 )
+                with suppress(OSError):
+                    settings.remove_legacy_credential(
+                        settings.OPENAI_SECRET
+                    )
             if self.os_key.text().strip():
                 self.secret_store.set(
                     settings.OPEN_SUBTITLES_SECRET,
                     self.os_key.text(),
                 )
+                with suppress(OSError):
+                    settings.remove_legacy_credential(
+                        settings.OPEN_SUBTITLES_SECRET
+                    )
         except settings.SecretStorageError as exc:
             QMessageBox.critical(
                 self,
@@ -2806,16 +2828,10 @@ class MainWindow(QMainWindow):
         self._update_key_states()
 
     def _update_key_states(self) -> None:
-        if os.environ.get("SUBTITLE_TRANSLATOR_SMOKE_TEST") == "1":
-            self.openai_state.setText(tr("Not tested"))
-            self.os_state.setText(tr("Not tested"))
-            self.openai_state.setStyleSheet(f"color: {MUTED};")
-            self.os_state.setStyleSheet(f"color: {MUTED};")
-            return
         try:
-            openai_present = bool(self.secret_store.get(settings.OPENAI_SECRET))
-            os_present = bool(
-                self.secret_store.get(settings.OPEN_SUBTITLES_SECRET)
+            openai_present = self.secret_store.has(settings.OPENAI_SECRET)
+            os_present = self.secret_store.has(
+                settings.OPEN_SUBTITLES_SECRET
             )
         except settings.SecretStorageError:
             openai_present = os_present = False
@@ -3179,35 +3195,6 @@ class MainWindow(QMainWindow):
         SetupChecklistDialog(self).exec()
         self._update_dependency_status()
         self._update_key_states()
-
-    def _migrate_legacy_credentials(self) -> None:
-        try:
-            migrated = settings.migrate_legacy_credentials(self.secret_store)
-        except settings.SecretStorageError as exc:
-            error = str(exc)
-            QTimer.singleShot(
-                0,
-                lambda error=error: QMessageBox.warning(
-                    self,
-                    tr("Credential Migration"),
-                    tr("Credential migration failed: {error}").format(
-                        error=error
-                    ),
-                ),
-            )
-            return
-        if migrated:
-            QTimer.singleShot(
-                0,
-                lambda: QMessageBox.information(
-                    self,
-                    tr("Credentials Secured"),
-                    tr(
-                        "Existing API credentials were moved into macOS "
-                        "Keychain."
-                    ),
-                ),
-            )
 
     def _show_first_run(self) -> None:
         self._show_setup_checklist()

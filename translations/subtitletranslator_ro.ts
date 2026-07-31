@@ -1123,10 +1123,6 @@ Deschide instrucţiunile de setare?</translation>
       <translation>Să elimine ambele identificări din macOS Keychain ?</translation>
     </message>
     <message>
-      <source>Not tested</source>
-      <translation>Nu a fost testată</translation>
-    </message>
-    <message>
       <source>Stored in Keychain</source>
       <translation>Stocate în Keychain</translation>
     </message>
@@ -1213,22 +1209,6 @@ Deschide instrucţiunile de setare?</translation>
     <message>
       <source>ready</source>
       <translation>pregătit</translation>
-    </message>
-    <message>
-      <source>Credential Migration</source>
-      <translation>Migrație de acreditări</translation>
-    </message>
-    <message>
-      <source>Credential migration failed: {error}</source>
-      <translation>Migraţia de acreditări a eşuat: {error}</translation>
-    </message>
-    <message>
-      <source>Credentials Secured</source>
-      <translation>Credenţiale garantate</translation>
-    </message>
-    <message>
-      <source>Existing API credentials were moved into macOS Keychain.</source>
-      <translation>Acreditările existente ale API au fost mutate în macOS Keychain .</translation>
     </message>
     <message>
       <source>The developer does not collect your data</source>

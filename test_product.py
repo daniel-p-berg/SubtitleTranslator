@@ -355,8 +355,12 @@ class PrivacyAndSettingsTests(unittest.TestCase):
 
     def test_secret_store_caches_successful_keychain_writes(self) -> None:
         with (
-            mock.patch.object(settings.keyring, "set_password") as set_password,
+            mock.patch.object(
+                settings,
+                "_set_keychain_password",
+            ) as set_password,
             mock.patch.object(settings.keyring, "get_password") as get_password,
+            mock.patch.object(settings.keyring, "set_password") as old_set,
         ):
             store = settings.SecretStore("test.service")
             store.set(settings.OPENAI_SECRET, "new-secret")
@@ -366,6 +370,26 @@ class PrivacyAndSettingsTests(unittest.TestCase):
             "test.service",
             settings.OPENAI_SECRET,
             "new-secret",
+        )
+        get_password.assert_not_called()
+        old_set.assert_not_called()
+
+    def test_secret_store_checks_metadata_without_reading_secret(self) -> None:
+        with (
+            mock.patch.object(
+                settings,
+                "_keychain_item_exists",
+                return_value=True,
+            ) as item_exists,
+            mock.patch.object(settings.keyring, "get_password") as get_password,
+        ):
+            store = settings.SecretStore("test.service")
+            self.assertTrue(store.has(settings.OPENAI_SECRET))
+            self.assertTrue(store.has(settings.OPENAI_SECRET))
+
+        item_exists.assert_called_once_with(
+            "test.service",
+            settings.OPENAI_SECRET,
         )
         get_password.assert_not_called()
 
@@ -387,7 +411,9 @@ class PrivacyAndSettingsTests(unittest.TestCase):
             mode = stat.S_IMODE(path.stat().st_mode)
             self.assertEqual(mode, stat.S_IRUSR | stat.S_IWUSR)
 
-    def test_legacy_plaintext_credentials_are_removed_after_migration(self) -> None:
+    def test_legacy_plaintext_duplicates_are_removed_without_secret_reads(
+        self,
+    ) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             path = Path(temporary) / "legacy.json"
             path.write_text(
@@ -401,25 +427,21 @@ class PrivacyAndSettingsTests(unittest.TestCase):
             )
 
             class MemorySecrets:
-                values: dict[str, str] = {}
-
-                def set(self, name: str, value: str) -> None:
-                    self.values[name] = value
+                def has_keychain_item(self, name: str) -> bool:
+                    return name in {
+                        settings.OPENAI_SECRET,
+                        settings.OPEN_SUBTITLES_SECRET,
+                    }
 
             secret_store = MemorySecrets()
-            migrated = settings.migrate_legacy_credentials(secret_store, path)
-            self.assertTrue(migrated)
+            reconciled = settings.reconcile_legacy_credentials(
+                secret_store,
+                path,
+            )
+            self.assertTrue(reconciled)
             self.assertFalse(path.exists())
-            self.assertEqual(
-                secret_store.values[settings.OPENAI_SECRET],
-                "first-secret",
-            )
-            self.assertEqual(
-                secret_store.values[settings.OPEN_SUBTITLES_SECRET],
-                "second-secret",
-            )
 
-    def test_legacy_migration_does_not_repeat_completed_credentials(self) -> None:
+    def test_legacy_reconciliation_keeps_only_missing_credentials(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             path = Path(temporary) / "legacy.json"
             path.write_text(
@@ -432,13 +454,15 @@ class PrivacyAndSettingsTests(unittest.TestCase):
                 encoding="utf-8",
             )
 
-            class FailingSecrets:
-                def set(self, name: str, value: str) -> None:
-                    if name == settings.OPEN_SUBTITLES_SECRET:
-                        raise settings.SecretStorageError("denied")
+            class PartialSecrets:
+                def has_keychain_item(self, name: str) -> bool:
+                    return name == settings.OPENAI_SECRET
 
-            with self.assertRaises(settings.SecretStorageError):
-                settings.migrate_legacy_credentials(FailingSecrets(), path)
+            reconciled = settings.reconcile_legacy_credentials(
+                PartialSecrets(),
+                path,
+            )
+            self.assertTrue(reconciled)
 
             remaining = json.loads(path.read_text(encoding="utf-8"))
             self.assertNotIn(settings.OPENAI_SECRET, remaining)
@@ -446,6 +470,38 @@ class PrivacyAndSettingsTests(unittest.TestCase):
                 remaining[settings.OPEN_SUBTITLES_SECRET],
                 "second-secret",
             )
+            self.assertEqual(
+                stat.S_IMODE(path.stat().st_mode),
+                stat.S_IRUSR | stat.S_IWUSR,
+            )
+
+    def test_environment_override_does_not_delete_legacy_copy(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "legacy.json"
+            path.write_text(
+                json.dumps(
+                    {settings.OPENAI_SECRET: "legacy-placeholder"}
+                ),
+                encoding="utf-8",
+            )
+            with (
+                mock.patch.dict(
+                    os.environ,
+                    {"OPENAI_API_KEY": "environment-placeholder"},
+                ),
+                mock.patch.object(
+                    settings,
+                    "_keychain_item_exists",
+                    return_value=False,
+                ),
+            ):
+                reconciled = settings.reconcile_legacy_credentials(
+                    settings.SecretStore("test.service"),
+                    path,
+                )
+
+            self.assertFalse(reconciled)
+            self.assertTrue(path.exists())
             self.assertEqual(
                 stat.S_IMODE(path.stat().st_mode),
                 stat.S_IRUSR | stat.S_IWUSR,

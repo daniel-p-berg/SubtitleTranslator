@@ -1123,10 +1123,6 @@ Buksan ang mga tagubilin sa pag-setup?</translation>
       <translation>I-remove ang parehong API credentials mula sa macOS Keychain ?</translation>
     </message>
     <message>
-      <source>Not tested</source>
-      <translation>Hindi sinubukan</translation>
-    </message>
-    <message>
       <source>Stored in Keychain</source>
       <translation>Nagtatago sa Keychain</translation>
     </message>
@@ -1213,22 +1209,6 @@ Buksan ang mga tagubilin sa pag-setup?</translation>
     <message>
       <source>ready</source>
       <translation>handa</translation>
-    </message>
-    <message>
-      <source>Credential Migration</source>
-      <translation>Paglipat ng mga kredensial</translation>
-    </message>
-    <message>
-      <source>Credential migration failed: {error}</source>
-      <translation>Nabalitaan ang paglipat ng credential: {error}</translation>
-    </message>
-    <message>
-      <source>Credentials Secured</source>
-      <translation>Pinatutupad ang mga Krediensyal</translation>
-    </message>
-    <message>
-      <source>Existing API credentials were moved into macOS Keychain.</source>
-      <translation>Ang umiiral na credentials ng API ay inilipat sa macOS Keychain .</translation>
     </message>
     <message>
       <source>The developer does not collect your data</source>

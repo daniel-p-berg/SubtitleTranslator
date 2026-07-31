@@ -1123,10 +1123,6 @@ Açılış talimatları?</translation>
       <translation>macOS Keychain ' den her iki API kimliğini çıkarmak mı ?</translation>
     </message>
     <message>
-      <source>Not tested</source>
-      <translation>Test edilmemiş</translation>
-    </message>
-    <message>
       <source>Stored in Keychain</source>
       <translation>Keychain' da depolanan</translation>
     </message>
@@ -1213,22 +1209,6 @@ Açılış talimatları?</translation>
     <message>
       <source>ready</source>
       <translation>Hazır</translation>
-    </message>
-    <message>
-      <source>Credential Migration</source>
-      <translation>İttifak Migrasyonu</translation>
-    </message>
-    <message>
-      <source>Credential migration failed: {error}</source>
-      <translation>İtiraf göçü başarısız oldu: {error}</translation>
-    </message>
-    <message>
-      <source>Credentials Secured</source>
-      <translation>İttifak Güvenilirliği</translation>
-    </message>
-    <message>
-      <source>Existing API credentials were moved into macOS Keychain.</source>
-      <translation>Mevcut API yetenekleri macOS Keychain ' e taşındı .</translation>
     </message>
     <message>
       <source>The developer does not collect your data</source>

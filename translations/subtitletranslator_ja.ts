@@ -1123,10 +1123,6 @@ Open setup instructions?</source>
       <translation>macOS Keychainから API認証を削除する?</translation>
     </message>
     <message>
-      <source>Not tested</source>
-      <translation>試験されていない</translation>
-    </message>
-    <message>
       <source>Stored in Keychain</source>
       <translation>Keychain に保管されている</translation>
     </message>
@@ -1213,22 +1209,6 @@ Open setup instructions?</source>
     <message>
       <source>ready</source>
       <translation>準備</translation>
-    </message>
-    <message>
-      <source>Credential Migration</source>
-      <translation>資格移住</translation>
-    </message>
-    <message>
-      <source>Credential migration failed: {error}</source>
-      <translation>資格移行失敗: {error}</translation>
-    </message>
-    <message>
-      <source>Credentials Secured</source>
-      <translation>証明書が確保された</translation>
-    </message>
-    <message>
-      <source>Existing API credentials were moved into macOS Keychain.</source>
-      <translation>既存のAPI認証は macOS Keychainに移行されました</translation>
     </message>
     <message>
       <source>The developer does not collect your data</source>

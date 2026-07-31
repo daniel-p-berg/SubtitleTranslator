@@ -1123,10 +1123,6 @@ Open setup instructions?</source>
       <translation>在 macOS Keychain中移除了兩個API認證?</translation>
     </message>
     <message>
-      <source>Not tested</source>
-      <translation>沒有測試</translation>
-    </message>
-    <message>
       <source>Stored in Keychain</source>
       <translation>在 Keychain 存储</translation>
     </message>
@@ -1213,22 +1209,6 @@ Open setup instructions?</source>
     <message>
       <source>ready</source>
       <translation>準備好了</translation>
-    </message>
-    <message>
-      <source>Credential Migration</source>
-      <translation>認證移民</translation>
-    </message>
-    <message>
-      <source>Credential migration failed: {error}</source>
-      <translation>認證移民失敗: {error}</translation>
-    </message>
-    <message>
-      <source>Credentials Secured</source>
-      <translation>證件得到保障</translation>
-    </message>
-    <message>
-      <source>Existing API credentials were moved into macOS Keychain.</source>
-      <translation>目前的API認證已轉移到 macOS Keychain .</translation>
     </message>
     <message>
       <source>The developer does not collect your data</source>

@@ -1123,10 +1123,6 @@ Open setup instructions?</source>
       <translation>macOS Keychain से दोनों एपीआई क्रेडेंशियल निकालें ?</translation>
     </message>
     <message>
-      <source>Not tested</source>
-      <translation>परीक्षण नहीं किया गया</translation>
-    </message>
-    <message>
       <source>Stored in Keychain</source>
       <translation>Keychain में संग्रहीत</translation>
     </message>
@@ -1213,22 +1209,6 @@ Open setup instructions?</source>
     <message>
       <source>ready</source>
       <translation>तैयार</translation>
-    </message>
-    <message>
-      <source>Credential Migration</source>
-      <translation>प्रमाण पत्र प्रवासन</translation>
-    </message>
-    <message>
-      <source>Credential migration failed: {error}</source>
-      <translation>क्रेडेंशियल माइग्रेशन विफल: {error}</translation>
-    </message>
-    <message>
-      <source>Credentials Secured</source>
-      <translation>क्रेडेंशियल सुरक्षित</translation>
-    </message>
-    <message>
-      <source>Existing API credentials were moved into macOS Keychain.</source>
-      <translation>मौजूदा एपीआई क्रेडेंशियल को macOS Keychain में स्थानांतरित कर दिया गया था .</translation>
     </message>
     <message>
       <source>The developer does not collect your data</source>

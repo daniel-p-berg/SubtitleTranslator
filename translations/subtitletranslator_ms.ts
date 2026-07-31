@@ -1123,10 +1123,6 @@ Buka arahan pemasangan?</translation>
       <translation>Menghapuskan kedua-dua ID API dari macOS Keychain ?</translation>
     </message>
     <message>
-      <source>Not tested</source>
-      <translation>Tidak diuji</translation>
-    </message>
-    <message>
       <source>Stored in Keychain</source>
       <translation>Disimpan di Keychain</translation>
     </message>
@@ -1213,22 +1209,6 @@ Buka arahan pemasangan?</translation>
     <message>
       <source>ready</source>
       <translation>siap</translation>
-    </message>
-    <message>
-      <source>Credential Migration</source>
-      <translation>Migrasi kelayakan</translation>
-    </message>
-    <message>
-      <source>Credential migration failed: {error}</source>
-      <translation>Perpindahan kelayakan gagal: {error}</translation>
-    </message>
-    <message>
-      <source>Credentials Secured</source>
-      <translation>Kenali yang Dijamin</translation>
-    </message>
-    <message>
-      <source>Existing API credentials were moved into macOS Keychain.</source>
-      <translation>Kenali API yang ada dipindahkan ke macOS Keychain .</translation>
     </message>
     <message>
       <source>The developer does not collect your data</source>

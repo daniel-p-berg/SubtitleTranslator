@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ctypes
 import json
 import os
 import stat
@@ -129,6 +130,29 @@ class SecretStore:
     def __init__(self, service: str = KEYCHAIN_SERVICE) -> None:
         self.service = service
         self._cache: dict[str, str] = {}
+        self._presence: dict[str, bool] = {}
+
+    def has(self, name: str) -> bool:
+        """Check credential metadata without requesting the secret value."""
+        env_name = _SECRET_ENVIRONMENT.get(name)
+        if env_name and os.environ.get(env_name, "").strip():
+            return True
+        if name in self._cache:
+            return bool(self._cache[name])
+        return self.has_keychain_item(name)
+
+    def has_keychain_item(self, name: str) -> bool:
+        """Check whether Keychain itself contains a credential item."""
+        if name in self._presence:
+            return self._presence[name]
+        try:
+            present = _keychain_item_exists(self.service, name)
+        except KeyringError as exc:
+            raise SecretStorageError(
+                "macOS Keychain metadata could not be checked."
+            ) from exc
+        self._presence[name] = present
+        return present
 
     def get(self, name: str) -> str:
         """Return an environment override or Keychain value."""
@@ -147,6 +171,7 @@ class SecretStore:
                 "to a settings file."
             ) from exc
         self._cache[name] = value
+        self._presence[name] = bool(value)
         return value
 
     def set(self, name: str, value: str) -> None:
@@ -154,7 +179,7 @@ class SecretStore:
         value = value.strip()
         try:
             if value:
-                keyring.set_password(self.service, name, value)
+                _set_keychain_password(self.service, name, value)
             else:
                 try:
                     keyring.delete_password(self.service, name)
@@ -165,6 +190,7 @@ class SecretStore:
                 "macOS Keychain rejected the credential. It was not saved."
             ) from exc
         self._cache[name] = value
+        self._presence[name] = bool(value)
 
     def delete(self, name: str) -> None:
         """Remove one credential from Keychain."""
@@ -179,16 +205,11 @@ def ensure_private_directories(workspace_directory: str | Path | None = None) ->
         _chmod_private_directory(directory)
 
 
-def migrate_legacy_credentials(
+def reconcile_legacy_credentials(
     secret_store: SecretStore,
     legacy_path: Path = LEGACY_SETTINGS_PATH,
 ) -> bool:
-    """Move plaintext credentials from the legacy file into Keychain once.
-
-    Each plaintext credential is removed immediately after it is stored
-    successfully. Non-secret legacy preferences are intentionally not imported
-    because their path assumptions do not belong in the public app.
-    """
+    """Remove plaintext copies only when matching Keychain items already exist."""
     legacy_path = Path(legacy_path)
     try:
         payload = json.loads(legacy_path.read_text(encoding="utf-8"))
@@ -205,21 +226,110 @@ def migrate_legacy_credentials(
     if not discovered:
         return False
 
-    for key, value in discovered.items():
-        secret_store.set(key, value)
-        payload.pop(key, None)
-        try:
-            if payload:
-                _write_private_json(legacy_path, payload)
-            else:
-                legacy_path.unlink(missing_ok=True)
-        except OSError as exc:
-            raise SecretStorageError(
-                "A credential reached Keychain, but its plaintext copy could "
-                "not be removed. Delete the legacy settings file manually "
-                "before sharing diagnostics."
-            ) from exc
+    removed = False
+    for key in discovered:
+        if secret_store.has_keychain_item(key):
+            payload.pop(key, None)
+            removed = True
+
+    if removed:
+        _replace_or_remove_legacy_file(legacy_path, payload)
+    else:
+        os.chmod(legacy_path, stat.S_IRUSR | stat.S_IWUSR)
+    return removed
+
+
+def remove_legacy_credential(
+    name: str,
+    legacy_path: Path = LEGACY_SETTINGS_PATH,
+) -> None:
+    """Remove one plaintext legacy copy after an explicit Keychain save."""
+    legacy_path = Path(legacy_path)
+    try:
+        payload = json.loads(legacy_path.read_text(encoding="utf-8"))
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        return
+    if not isinstance(payload, dict) or name not in payload:
+        return
+    payload.pop(name, None)
+    _replace_or_remove_legacy_file(legacy_path, payload)
+
+
+def _replace_or_remove_legacy_file(
+    legacy_path: Path,
+    payload: dict[str, Any],
+) -> None:
+    if payload:
+        _write_private_json(legacy_path, payload)
+    else:
+        legacy_path.unlink(missing_ok=True)
+
+
+def _keychain_item_exists(service: str, name: str) -> bool:
+    """Query a generic-password item's metadata without decrypting its value."""
+    from keyring.backends.macOS import api
+
+    query = api.create_query(
+        kSecClass=api.k_("kSecClassGenericPassword"),
+        kSecMatchLimit=api.k_("kSecMatchLimitOne"),
+        kSecAttrService=service,
+        kSecAttrAccount=name,
+    )
+    status = api.SecItemCopyMatching(query, None)
+    if status == api.error.item_not_found:
+        return False
+    try:
+        api.Error.raise_for_status(status)
+    except api.Error as exc:
+        raise KeyringError("Keychain metadata query failed.") from exc
     return True
+
+
+def _set_keychain_password(service: str, name: str, value: str) -> None:
+    """Add or update a generic password without a delete/recreate cycle."""
+    from keyring.backends.macOS import api
+
+    encoded = value.encode("utf-8")
+    buffer = ctypes.create_string_buffer(encoded)
+    cf_data_create = api._found.CFDataCreate
+    cf_data_create.restype = ctypes.c_void_p
+    cf_data_create.argtypes = (
+        ctypes.c_void_p,
+        ctypes.c_void_p,
+        ctypes.c_long,
+    )
+    data = cf_data_create(
+        None,
+        ctypes.cast(buffer, ctypes.c_void_p),
+        len(encoded),
+    )
+    if not data:
+        raise KeyringError("Keychain password encoding failed.")
+
+    query = api.create_query(
+        kSecClass=api.k_("kSecClassGenericPassword"),
+        kSecAttrService=service,
+        kSecAttrAccount=name,
+    )
+    attributes = api.create_query(
+        kSecValueData=ctypes.c_void_p(data),
+    )
+    sec_item_update = api._sec.SecItemUpdate
+    sec_item_update.restype = api.OS_status
+    sec_item_update.argtypes = (ctypes.c_void_p, ctypes.c_void_p)
+    status = sec_item_update(query, attributes)
+    if status == api.error.item_not_found:
+        add_query = api.create_query(
+            kSecClass=api.k_("kSecClassGenericPassword"),
+            kSecAttrService=service,
+            kSecAttrAccount=name,
+            kSecValueData=ctypes.c_void_p(data),
+        )
+        status = api.SecItemAdd(add_query, None)
+    try:
+        api.Error.raise_for_status(status)
+    except api.Error as exc:
+        raise KeyringError("Keychain password update failed.") from exc
 
 
 def _write_private_json(path: Path, payload: dict[str, Any]) -> None:

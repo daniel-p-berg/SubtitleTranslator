@@ -124,10 +124,11 @@ reviewed on July 11, 2026.
    [API consumers page](https://www.opensubtitles.com/en/consumers).
 3. Add it under **Settings > API Connections** and save it to Keychain.
 
-Unsigned beta updates may ask for Keychain permission again because macOS sees
-each rebuilt app as a new accessor. Enter the Mac login password and choose
-**Always Allow** once for each saved API key. The app caches successful access
-for the rest of that launch.
+The app does not read API keys while opening. When a workflow first needs a
+saved key, **Allow** grants that request and the app caches the value for the
+rest of the launch. **Always Allow** also prevents another request the next
+time that installed build opens. OpenAI and OpenSubtitles are separate
+Keychain items, so a workflow that uses both services may request each one.
 
 Subtitle availability, rate limits, and download quotas are controlled by
 OpenSubtitles.
