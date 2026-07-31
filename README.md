@@ -66,11 +66,13 @@ installation guides are available in [`docs/i18n`](docs/i18n/).
 
 ## Install
 
-1. Download the DMG matching the Mac from
+1. Download the universal DMG from
    [GitHub Releases](https://github.com/daniel-p-berg/SubtitleTranslator/releases).
-2. Drag `SubtitleTranslator.app` into Applications.
-3. Because this beta is not notarized, right-click the app, choose **Open**, and
-   confirm the first launch.
+2. Open the DMG and drag `SubtitleTranslator.app` onto its Applications
+   shortcut.
+3. Because this beta is not notarized, try to open it once, then choose
+   **System Settings > Privacy & Security > Open Anyway** and confirm the
+   first launch.
 4. Complete the readiness checklist for media tools, optional API connections,
    a media folder, mpv, and a first media file.
 5. If Homebrew is missing, choose **Install Homebrew**, use the official signed

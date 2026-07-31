@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.9.0-beta.5
+
+- Fixed first-run language detection when Qt reports a neutral locale instead
+  of the Mac's preferred interface language.
+- Added an interface-language chooser before the readiness checklist so
+  onboarding is constructed in the selected language.
+- Added the conventional Applications shortcut to the DMG installation window.
+- Updated the macOS bundle build number for the replacement beta.
+
 ## 0.9.0-beta.4
 
 - Added cooperative cancellation for OpenSubtitles search and retry waits,

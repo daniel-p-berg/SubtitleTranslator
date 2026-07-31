@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import os
+import plistlib
+import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -153,14 +155,45 @@ def match_supported_locale(locale_name: str) -> str | None:
     return language.code if language else None
 
 
+def _macos_preferred_languages() -> tuple[str, ...]:
+    """Read the Mac's UI-language order independently of Qt's format locale."""
+    if sys.platform != "darwin":
+        return ()
+    try:
+        completed = subprocess.run(  # noqa: S603 - fixed macOS system command
+            ["/usr/bin/defaults", "export", "NSGlobalDomain", "-"],
+            capture_output=True,
+            check=False,
+            timeout=5,
+        )
+        if completed.returncode != 0:
+            return ()
+        payload = plistlib.loads(completed.stdout)
+    except (OSError, subprocess.SubprocessError, plistlib.InvalidFileException):
+        return ()
+
+    values = payload.get("AppleLanguages", ())
+    if not isinstance(values, (list, tuple)):
+        return ()
+    return tuple(
+        value.strip()
+        for value in values
+        if isinstance(value, str) and value.strip()
+    )
+
+
 def system_language_code() -> str:
     """Choose the first supported language from the Mac preference order."""
-    for locale_name in QLocale.system().uiLanguages():
+    candidates = (
+        *_macos_preferred_languages(),
+        *QLocale.system().uiLanguages(),
+        QLocale.system().name(),
+    )
+    for locale_name in candidates:
         matched = match_supported_locale(locale_name)
         if matched:
             return matched
-    matched = match_supported_locale(QLocale.system().name())
-    return matched or "en"
+    return "en"
 
 
 def resolve_language(preference: str) -> InterfaceLanguage:

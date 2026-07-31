@@ -1573,7 +1573,12 @@ class SetupChecklistDialog(QDialog):
 class MainWindow(QMainWindow):
     """Primary application window."""
 
-    def __init__(self, version: str) -> None:
+    def __init__(
+        self,
+        version: str,
+        *,
+        first_run: bool | None = None,
+    ) -> None:
         super().__init__()
         self.version = version
         self.settings_store = settings.SettingsStore()
@@ -1591,9 +1596,12 @@ class MainWindow(QMainWindow):
         self._recent_worker: FunctionThread | None = None
         self._inspection_generation = 0
         self._candidate_dialog: CandidateDialog | None = None
-        self._first_run = (
+        detected_first_run = (
             not settings.SETTINGS_PATH.exists()
             and os.environ.get("SUBTITLE_TRANSLATOR_SMOKE_TEST") != "1"
+        )
+        self._first_run = (
+            detected_first_run if first_run is None else first_run
         )
 
         settings.ensure_private_directories(

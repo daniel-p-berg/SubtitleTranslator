@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import plistlib
 import stat
 import tempfile
 import threading
@@ -226,6 +227,34 @@ class InterfaceLocalizationTests(unittest.TestCase):
         self.assertEqual(i18n.match_supported_locale("pt_BR"), "pt-BR")
         self.assertEqual(i18n.match_supported_locale("tl_PH"), "fil")
         self.assertIsNone(i18n.match_supported_locale("sv_SE"))
+
+    def test_macos_preferred_language_beats_neutral_qt_locale(self) -> None:
+        preferences = plistlib.dumps(
+            {"AppleLanguages": ["vi-VN", "en-US"]}
+        )
+        completed = SimpleNamespace(
+            returncode=0,
+            stdout=preferences,
+        )
+        with (
+            mock.patch.object(i18n.sys, "platform", "darwin"),
+            mock.patch.object(
+                i18n.subprocess,
+                "run",
+                return_value=completed,
+            ),
+        ):
+            self.assertEqual(
+                i18n._macos_preferred_languages(),
+                ("vi-VN", "en-US"),
+            )
+
+        with mock.patch.object(
+            i18n,
+            "_macos_preferred_languages",
+            return_value=("vi-VN", "en-US"),
+        ):
+            self.assertEqual(i18n.system_language_code(), "vi")
 
     def test_rtl_registry_is_explicit_and_limited(self) -> None:
         rtl = {

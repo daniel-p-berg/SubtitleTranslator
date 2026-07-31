@@ -6,7 +6,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
 APP_NAME="SubtitleTranslator"
-VERSION="${VERSION:-0.9.0-beta.4}"
+VERSION="${VERSION:-0.9.0-beta.5}"
 PYTHON="${PYTHON:-python3.12}"
 ARCH="$(uname -m)"
 TARGET_ARCH="${TARGET_ARCH:-$ARCH}"
@@ -131,9 +131,15 @@ ZIP_PATH="$ARTIFACT_DIR/$ZIP_NAME"
 DMG_PATH="$ARTIFACT_DIR/$DMG_NAME"
 rm -f "$ZIP_PATH" "$DMG_PATH"
 ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" "$ZIP_PATH"
+
+DMG_ROOT="$SCRIPT_DIR/build/dmg-root"
+rm -rf "$DMG_ROOT"
+mkdir -p "$DMG_ROOT"
+ditto "$APP_PATH" "$DMG_ROOT/${APP_NAME}.app"
+ln -s /Applications "$DMG_ROOT/Applications"
 hdiutil create \
     -volname "$APP_NAME" \
-    -srcfolder "$APP_PATH" \
+    -srcfolder "$DMG_ROOT" \
     -ov \
     -format UDZO \
     "$DMG_PATH" >/dev/null
@@ -146,4 +152,4 @@ hdiutil create \
 green "Built:"
 green "  $ZIP_PATH"
 green "  $DMG_PATH"
-yellow "This beta is not notarized. Users must right-click the app and choose Open."
+yellow "This beta is not notarized. Use Privacy & Security > Open Anyway once."
