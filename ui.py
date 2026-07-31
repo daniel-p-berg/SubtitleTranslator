@@ -67,18 +67,21 @@ import translator
 from i18n import tr
 
 
-BG = "#0d1117"
-PANEL = "#141a22"
-SURFACE = "#1b222c"
-SURFACE_ACTIVE = "#232d38"
-BORDER = "#303a47"
-TEXT = "#edf2f5"
-MUTED = "#98a5af"
-ACCENT = "#48d6c7"
-ACCENT_DARK = "#183f3e"
-WARM = "#f0b45a"
-DANGER = "#f17070"
-SUCCESS = "#69d49c"
+BG = "#f7f7f5"
+PANEL = "#ffffff"
+SURFACE = "#f0f0ed"
+BORDER = "#d3d3ce"
+BORDER_STRONG = "#1f1f1d"
+TEXT = "#171716"
+MUTED = "#686864"
+ACCENT = "#0d8068"
+ACCENT_DARK = "#dff2ec"
+FOCUS = "#2563c7"
+WARM = "#8a5a00"
+WARM_SOFT = "#fff4cf"
+DANGER = "#b42318"
+DANGER_SOFT = "#fce8e6"
+SUCCESS = "#087a5b"
 
 OPENAI_URL = "https://platform.openai.com/api-keys"
 OPEN_SUBTITLES_URL = "https://www.opensubtitles.com/en/consumers"
@@ -143,169 +146,345 @@ def _localized_prompt_error(message: str) -> str:
 
 
 def apply_application_style(application: QApplication) -> None:
-    """Apply a restrained dark utility theme with native dimensions."""
+    """Apply the shared modern Macintosh-inspired visual system."""
     application.setStyle("Fusion")
+    font = application.font()
+    font.setPointSize(13)
+    application.setFont(font)
     application.setStyleSheet(
         f"""
         * {{
             font-size: 13px;
             color: {TEXT};
+            letter-spacing: 0px;
         }}
-        QMainWindow, QDialog, QWidget {{
+        QMainWindow, QDialog {{
             background: {BG};
         }}
-        QLabel, QCheckBox {{
+        QWidget {{
+            selection-background-color: {ACCENT_DARK};
+            selection-color: {TEXT};
+        }}
+        QLabel, QCheckBox, QRadioButton, QScrollArea, QScrollArea > QWidget,
+        QScrollArea > QWidget > QWidget {{
             background: transparent;
+        }}
+        QLabel#brandLabel {{
+            font-size: 20px;
+            font-weight: 700;
+        }}
+        QLabel#versionLabel, QLabel#microLabel {{
+            color: {MUTED};
+            font-family: "SF Mono", Menlo, monospace;
+            font-size: 10px;
+        }}
+        QLabel#pageTitle, QLabel#dialogTitle {{
+            font-size: 20px;
+            font-weight: 700;
+        }}
+        QLabel#pageTitle {{
+            font-size: 18px;
+        }}
+        QLabel#mutedLabel {{
+            color: {MUTED};
+        }}
+        QLabel#warningLabel {{
+            color: {WARM};
+            background: {WARM_SOFT};
+            border: 1px solid #e7cf83;
+            border-radius: 5px;
+            padding: 9px 11px;
+        }}
+        QFrame#headerRule {{
+            background: {BORDER_STRONG};
+            border: 0;
+            min-height: 1px;
+            max-height: 1px;
+        }}
+        QFrame#headerRuleAccent {{
+            background: {BORDER};
+            border: 0;
+            min-height: 1px;
+            max-height: 1px;
         }}
         QTabWidget::pane {{
             border: 0;
             background: {BG};
+            top: -1px;
+        }}
+        QTabBar {{
+            background: transparent;
         }}
         QTabBar::tab {{
             background: transparent;
             color: {MUTED};
-            border: 0;
-            border-bottom: 2px solid transparent;
-            padding: 12px 20px;
-            min-width: 80px;
+            border: 1px solid transparent;
+            border-bottom: 1px solid {BORDER};
+            padding: 10px 18px;
+            min-width: 86px;
+            font-weight: 600;
         }}
         QTabBar::tab:selected {{
             color: {TEXT};
-            border-bottom-color: {ACCENT};
+            background: {PANEL};
+            border-color: {BORDER};
+            border-bottom-color: {PANEL};
+            border-top-left-radius: 5px;
+            border-top-right-radius: 5px;
+        }}
+        QTabBar::tab:hover:!selected {{
+            color: {TEXT};
+            background: {SURFACE};
         }}
         QGroupBox {{
-            background: {PANEL};
-            border: 1px solid {BORDER};
-            border-radius: 6px;
-            margin-top: 12px;
-            padding: 18px 14px 14px 14px;
+            background: transparent;
+            border: 0;
+            border-top: 1px solid {BORDER};
+            border-radius: 0;
+            margin-top: 18px;
+            padding: 18px 0 0 0;
             font-weight: 600;
         }}
         QGroupBox::title {{
             subcontrol-origin: margin;
-            left: 12px;
-            padding: 0 5px;
-            color: {MUTED};
+            subcontrol-position: top left;
+            left: 0;
+            padding: 0 10px 0 0;
+            background: {BG};
+            color: {TEXT};
+            font-family: "SF Mono", Menlo, monospace;
+            font-size: 11px;
+            font-weight: 600;
         }}
-        QLineEdit, QComboBox, QListWidget, QTableWidget, QPlainTextEdit {{
-            background: {SURFACE};
+        QLineEdit, QComboBox, QSpinBox, QListWidget, QTableWidget,
+        QPlainTextEdit {{
+            background: {PANEL};
             border: 1px solid {BORDER};
-            border-radius: 5px;
-            padding: 7px 9px;
+            border-radius: 6px;
+            padding: 8px 10px;
             selection-background-color: {ACCENT_DARK};
+            selection-color: {TEXT};
         }}
-        QLineEdit, QComboBox {{
-            min-height: 20px;
+        QPlainTextEdit#technicalText {{
+            font-family: "SF Mono", Menlo, monospace;
+            font-size: 12px;
         }}
-        QLineEdit:focus, QComboBox:focus, QListWidget:focus,
+        QLineEdit, QComboBox, QSpinBox {{
+            min-height: 21px;
+        }}
+        QLineEdit:focus, QComboBox:focus, QSpinBox:focus, QListWidget:focus,
         QTableWidget:focus, QPlainTextEdit:focus {{
-            border-color: {ACCENT};
+            border-color: {FOCUS};
         }}
         QComboBox::drop-down {{
             border: 0;
-            width: 24px;
+            width: 28px;
+        }}
+        QComboBox QAbstractItemView {{
+            background: {PANEL};
+            border: 1px solid {BORDER_STRONG};
+            border-radius: 0;
+            padding: 4px;
+            selection-background-color: {TEXT};
+            selection-color: {PANEL};
         }}
         QPushButton, QToolButton {{
-            background: {SURFACE};
-            border: 1px solid {BORDER};
-            border-radius: 5px;
-            padding: 8px 13px;
+            background: {PANEL};
+            border: 1px solid #c4c4bf;
+            border-bottom-color: #a8a8a2;
+            border-radius: 6px;
+            padding: 8px 12px;
             font-weight: 600;
         }}
         QPushButton:hover, QToolButton:hover {{
-            background: {SURFACE_ACTIVE};
-            border-color: #485462;
+            background: {SURFACE};
+            border-color: #8f8f89;
         }}
         QPushButton:pressed, QToolButton:pressed {{
-            background: #10151b;
+            background: {TEXT};
+            color: {PANEL};
+            border-color: {TEXT};
+        }}
+        QPushButton:focus, QToolButton:focus {{
+            border: 2px solid {FOCUS};
         }}
         QPushButton:disabled, QToolButton:disabled {{
-            color: #596570;
-            background: #12171d;
-            border-color: #242c35;
+            color: #9b9b96;
+            background: #ededeb;
+            border-color: #d9d9d5;
         }}
         QPushButton#primaryButton {{
-            background: {ACCENT};
-            color: #071514;
-            border-color: {ACCENT};
-            padding: 11px 18px;
-            font-size: 14px;
+            background: {TEXT};
+            color: {PANEL};
+            border-color: {TEXT};
+            padding: 10px 17px;
         }}
         QPushButton#primaryButton:hover {{
-            background: #68e3d6;
+            background: #343432;
+            border-color: #343432;
+        }}
+        QPushButton#primaryButton:pressed {{
+            background: {PANEL};
+            color: {TEXT};
         }}
         QPushButton#primaryButton:disabled {{
-            color: #66727b;
-            background: #1c282d;
-            border-color: #2a3a40;
+            color: #92928d;
+            background: #e4e4e1;
+            border-color: #d2d2cd;
+        }}
+        QPushButton#headerButton {{
+            background: transparent;
+            border-color: transparent;
+            padding: 7px 10px;
+        }}
+        QPushButton#headerButton:hover {{
+            background: {SURFACE};
+            border-color: {BORDER};
         }}
         QPushButton#dangerButton {{
             color: {DANGER};
         }}
-        QToolButton#modeButton {{
-            border-radius: 0;
-            min-width: 92px;
-            min-height: 20px;
-            color: {TEXT};
+        QPushButton#dangerButton:hover {{
+            background: {DANGER_SOFT};
+            border-color: #d9aaa5;
         }}
-        QToolButton#modeButton:checked {{
-            background: {ACCENT_DARK};
-            color: {ACCENT};
-            border-color: {ACCENT};
+        QToolButton#segmentButton {{
+            background: {PANEL};
+            border: 1px solid #bcbcb6;
+            border-radius: 0;
+            min-width: 88px;
+            min-height: 19px;
+            color: {TEXT};
+            padding: 7px 12px;
+        }}
+        QToolButton#segmentButton[segmentPosition="first"] {{
+            border-top-left-radius: 6px;
+            border-bottom-left-radius: 6px;
+        }}
+        QToolButton#segmentButton[segmentPosition="middle"],
+        QToolButton#segmentButton[segmentPosition="last"] {{
+            border-left: 0;
+        }}
+        QToolButton#segmentButton[segmentPosition="last"] {{
+            border-top-right-radius: 6px;
+            border-bottom-right-radius: 6px;
+        }}
+        QToolButton#segmentButton:checked {{
+            background: {TEXT};
+            color: {PANEL};
+            border-color: {TEXT};
+        }}
+        QToolButton#segmentButton:hover:!checked {{
+            background: {SURFACE};
+        }}
+        QToolButton#detailsButton {{
+            background: transparent;
+            border-color: transparent;
+            padding-left: 0;
+            color: {MUTED};
+        }}
+        QToolButton#detailsButton:hover {{
+            color: {TEXT};
+            background: transparent;
+            border-color: transparent;
         }}
         QProgressBar {{
-            background: {SURFACE};
-            border: 1px solid {BORDER};
-            border-radius: 4px;
-            height: 8px;
+            background: {PANEL};
+            border: 1px solid {BORDER_STRONG};
+            border-radius: 0;
+            height: 7px;
             text-align: center;
             color: transparent;
         }}
         QProgressBar::chunk {{
             background: {ACCENT};
-            border-radius: 3px;
+            border: 0;
         }}
         QHeaderView::section {{
-            background: {PANEL};
+            background: {SURFACE};
             color: {MUTED};
             border: 0;
             border-bottom: 1px solid {BORDER};
-            padding: 8px;
+            padding: 9px 8px;
+            font-family: "SF Mono", Menlo, monospace;
+            font-size: 10px;
             font-weight: 600;
         }}
         QTableWidget {{
             gridline-color: {BORDER};
+            alternate-background-color: #fafaf8;
+        }}
+        QTableWidget::item, QListWidget::item {{
+            padding: 7px;
+        }}
+        QTableWidget::item:selected, QListWidget::item:selected {{
+            background: {TEXT};
+            color: {PANEL};
+        }}
+        QFrame#resultFrame {{
+            background: {ACCENT_DARK};
+            border: 1px solid #add8ca;
+            border-radius: 6px;
+        }}
+        QFrame#sidecarFrame {{
+            background: {SURFACE};
+            border: 1px solid {BORDER};
+            border-radius: 6px;
         }}
         QScrollBar:vertical {{
             background: {BG};
-            width: 10px;
-            margin: 0;
+            width: 12px;
+            margin: 2px;
         }}
         QScrollBar::handle:vertical {{
-            background: #3a4653;
+            background: #b5b5af;
             min-height: 30px;
-            border-radius: 4px;
+            border-radius: 5px;
+        }}
+        QScrollBar::handle:vertical:hover {{
+            background: #8f8f89;
         }}
         QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
             height: 0;
+        }}
+        QScrollBar:horizontal {{
+            background: {BG};
+            height: 12px;
+            margin: 2px;
+        }}
+        QScrollBar::handle:horizontal {{
+            background: #b5b5af;
+            min-width: 30px;
+            border-radius: 5px;
+        }}
+        QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {{
+            width: 0;
         }}
         QCheckBox {{
             spacing: 8px;
         }}
         QCheckBox::indicator {{
-            width: 16px;
-            height: 16px;
+            width: 15px;
+            height: 15px;
         }}
         QCheckBox::indicator:unchecked {{
-            background: {SURFACE};
-            border: 1px solid #647281;
-            border-radius: 3px;
+            background: {PANEL};
+            border: 1px solid {BORDER_STRONG};
+            border-radius: 1px;
+        }}
+        QCheckBox::indicator:checked {{
+            background: {TEXT};
+            border: 3px solid {PANEL};
+            border-radius: 1px;
+        }}
+        QCheckBox::indicator:focus {{
+            border-color: {FOCUS};
         }}
         QToolTip {{
-            background: #252e38;
-            color: {TEXT};
-            border: 1px solid #465361;
-            padding: 5px;
+            background: {TEXT};
+            color: {PANEL};
+            border: 1px solid {TEXT};
+            padding: 6px;
         }}
         """
     )
@@ -319,30 +498,31 @@ class DropFrame(QFrame):
     def __init__(self) -> None:
         super().__init__()
         self.setAcceptDrops(True)
+        self.setAccessibleName(tr("Choose a media file"))
         self.setObjectName("dropFrame")
         self.setStyleSheet(
             f"""
             QFrame#dropFrame {{
                 background: {PANEL};
-                border: 1px dashed #465463;
-                border-radius: 6px;
+                border: 1px dashed #969690;
+                border-radius: 8px;
             }}
             QFrame#dropFrame:hover {{
                 border-color: {ACCENT};
-                background: #151e25;
+                background: #f2f9f6;
             }}
             """
         )
-        self.setMinimumHeight(130)
+        self.setMinimumHeight(142)
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(24, 20, 24, 20)
-        layout.setSpacing(7)
+        layout.setContentsMargins(28, 22, 28, 22)
+        layout.setSpacing(8)
         self.title = QLabel(tr("Choose a media file"))
-        self.title.setStyleSheet("font-size: 17px; font-weight: 650;")
+        self.title.setObjectName("pageTitle")
         self.title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.detail = QLabel(tr("MKV, MP4, MOV, M4V, AVI, WebM, TS, or M2TS"))
-        self.detail.setStyleSheet(f"color: {MUTED};")
+        self.detail.setObjectName("mutedLabel")
         self.detail.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.detail.setWordWrap(True)
         self.choose = QPushButton(tr("Open File"))
@@ -516,21 +696,23 @@ class CandidateDialog(QDialog):
             tr("Review {language} Results").format(language=target_name)
         )
         self.resize(900, 540)
+        self.setMinimumSize(760, 500)
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(18, 18, 18, 18)
-        layout.setSpacing(12)
+        layout.setContentsMargins(24, 22, 24, 22)
+        layout.setSpacing(14)
 
         title = QLabel(
             tr("OpenSubtitles results / {language}").format(
                 language=target_name
             )
         )
-        title.setStyleSheet("font-size: 18px; font-weight: 650;")
+        title.setObjectName("dialogTitle")
         layout.addWidget(title)
 
         search_row = QHBoxLayout()
         self.query = QLineEdit()
         self.query.setPlaceholderText(tr("Movie or episode title"))
+        self.query.setAccessibleName(tr("Movie or episode title"))
         self.search_button = QPushButton(tr("Search"))
         self.search_button.setIcon(
             self.style().standardIcon(QStyle.StandardPixmap.SP_BrowserReload)
@@ -544,6 +726,7 @@ class CandidateDialog(QDialog):
             )
         )
         self.cancel_search_button.setToolTip(tr("Cancel search"))
+        self.cancel_search_button.setAccessibleName(tr("Cancel search"))
         self.cancel_search_button.setEnabled(False)
         self.cancel_search_button.clicked.connect(self._cancel_search)
         search_row.addWidget(self.query, 1)
@@ -572,6 +755,10 @@ class CandidateDialog(QDialog):
             QAbstractItemView.SelectionMode.SingleSelection
         )
         self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.table.setAlternatingRowColors(True)
+        self.table.setAccessibleName(
+            tr("Review {language} Results").format(language=target_name)
+        )
         self.table.verticalHeader().setVisible(False)
         header = self.table.horizontalHeader()
         header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
@@ -584,7 +771,7 @@ class CandidateDialog(QDialog):
         layout.addWidget(self.table, 1)
 
         self.status = QLabel("")
-        self.status.setStyleSheet(f"color: {MUTED};")
+        self.status.setObjectName("mutedLabel")
         layout.addWidget(self.status)
 
         if allow_translation:
@@ -599,7 +786,7 @@ class CandidateDialog(QDialog):
                 + tr("OpenAI receives subtitle text only when you translate.")
             )
             translation_notice.setWordWrap(True)
-            translation_notice.setStyleSheet(f"color: {WARM};")
+            translation_notice.setObjectName("warningLabel")
             layout.addWidget(translation_notice)
 
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Cancel)
@@ -617,6 +804,7 @@ class CandidateDialog(QDialog):
         if cancel_button:
             cancel_button.setText(tr("Cancel"))
         self.use_button.setEnabled(False)
+        self.use_button.setObjectName("primaryButton")
         self.use_button.clicked.connect(self._use_selected)
         buttons.rejected.connect(self.reject)
         self.table.itemSelectionChanged.connect(
@@ -767,11 +955,11 @@ class DependencySetupDialog(QDialog):
         self.setMinimumSize(680, 560)
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(22, 20, 22, 20)
-        layout.setSpacing(12)
+        layout.setContentsMargins(26, 24, 26, 24)
+        layout.setSpacing(14)
 
         title = QLabel(tr("Local media tools"))
-        title.setStyleSheet("font-size: 20px; font-weight: 700;")
+        title.setObjectName("dialogTitle")
         layout.addWidget(title)
 
         intro = QLabel(
@@ -787,7 +975,7 @@ class DependencySetupDialog(QDialog):
             + tr("It opens in a visible Terminal.")
         )
         intro.setWordWrap(True)
-        intro.setStyleSheet(f"color: {MUTED};")
+        intro.setObjectName("mutedLabel")
         layout.addWidget(intro)
 
         tool_group = QGroupBox(tr("Tool Status"))
@@ -827,6 +1015,7 @@ class DependencySetupDialog(QDialog):
         command_row = QHBoxLayout()
         self.command_edit = QLineEdit()
         self.command_edit.setReadOnly(True)
+        self.command_edit.setAccessibleName(tr("Copy Command"))
         self.command_edit.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
         self.command_edit.setStyleSheet(
             'font-family: "SF Mono", Menlo, monospace;'
@@ -1048,14 +1237,14 @@ class MpvSetupDialog(QDialog):
     def __init__(self, parent: QWidget) -> None:
         super().__init__(parent)
         self.setWindowTitle(tr("mpv Setup"))
-        self.resize(820, 640)
-        self.setMinimumSize(680, 640)
+        self.resize(840, 700)
+        self.setMinimumSize(720, 660)
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(20, 20, 20, 20)
-        layout.setSpacing(12)
+        layout.setContentsMargins(26, 24, 26, 24)
+        layout.setSpacing(14)
 
         title = QLabel(tr("mpv dual subtitles"))
-        title.setStyleSheet("font-size: 19px; font-weight: 650;")
+        title.setObjectName("dialogTitle")
         layout.addWidget(title)
 
         self.state = QLabel("")
@@ -1077,12 +1266,17 @@ class MpvSetupDialog(QDialog):
         layout.addWidget(install)
 
         positions = QGroupBox(tr("Dual Subtitle Layout"))
+        positions.setMinimumHeight(168)
         positions_layout = QGridLayout(positions)
+        positions_layout.setHorizontalSpacing(16)
+        positions_layout.setVerticalSpacing(10)
         self.primary_position = QSpinBox()
+        self.primary_position.setAccessibleName(tr("Primary position"))
         self.primary_position.setRange(0, 150)
         self.primary_position.setValue(88)
         self.primary_position.setSuffix("%")
         self.secondary_position = QSpinBox()
+        self.secondary_position.setAccessibleName(tr("Secondary position"))
         self.secondary_position.setRange(0, 150)
         self.secondary_position.setValue(12)
         self.secondary_position.setSuffix("%")
@@ -1096,17 +1290,17 @@ class MpvSetupDialog(QDialog):
         self.auto_secondary.setChecked(True)
         positions_layout.addWidget(QLabel(tr("Primary position")), 0, 0)
         positions_layout.addWidget(self.primary_position, 0, 1)
-        positions_layout.addWidget(QLabel(tr("Secondary position")), 0, 2)
-        positions_layout.addWidget(self.secondary_position, 0, 3)
-        positions_layout.addWidget(self.show_secondary, 1, 0, 1, 2)
-        positions_layout.addWidget(self.auto_secondary, 1, 2, 1, 2)
+        positions_layout.addWidget(QLabel(tr("Secondary position")), 1, 0)
+        positions_layout.addWidget(self.secondary_position, 1, 1)
+        positions_layout.addWidget(self.show_secondary, 2, 0, 1, 2)
+        positions_layout.addWidget(self.auto_secondary, 3, 0, 1, 2)
         positions_layout.setColumnStretch(1, 1)
-        positions_layout.setColumnStretch(3, 1)
         layout.addWidget(positions)
 
         path_row = QHBoxLayout()
         path_row.addWidget(QLabel(tr("Configuration file")))
         self.config_path = QLineEdit(str(mpv_config.DEFAULT_CONFIG_PATH))
+        self.config_path.setAccessibleName(tr("Configuration file"))
         self.config_path.setReadOnly(True)
         self.config_path.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
         open_folder = QToolButton()
@@ -1114,6 +1308,7 @@ class MpvSetupDialog(QDialog):
             self.style().standardIcon(QStyle.StandardPixmap.SP_DirOpenIcon)
         )
         open_folder.setToolTip(tr("Open configuration folder"))
+        open_folder.setAccessibleName(tr("Open configuration folder"))
         open_folder.clicked.connect(self._open_config_folder)
         path_row.addWidget(self.config_path, 1)
         path_row.addWidget(open_folder)
@@ -1127,9 +1322,11 @@ class MpvSetupDialog(QDialog):
         self.conflict_state.setMinimumHeight(34)
         layout.addWidget(self.conflict_state)
         self.config_preview = QPlainTextEdit()
+        self.config_preview.setObjectName("technicalText")
+        self.config_preview.setAccessibleName(tr("Safe merge preview"))
         self.config_preview.setReadOnly(True)
         self.config_preview.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
-        self.config_preview.setMinimumHeight(120)
+        self.config_preview.setMinimumHeight(105)
         self.config_preview.setMaximumHeight(160)
         layout.addWidget(self.config_preview, 1)
 
@@ -1307,10 +1504,10 @@ class SetupChecklistDialog(QDialog):
         self.setMinimumSize(680, 540)
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(22, 20, 22, 20)
-        layout.setSpacing(12)
+        layout.setContentsMargins(26, 24, 26, 24)
+        layout.setSpacing(14)
         title = QLabel(tr("Ready on this Mac"))
-        title.setStyleSheet("font-size: 20px; font-weight: 700;")
+        title.setObjectName("dialogTitle")
         layout.addWidget(title)
         intro = QLabel(
             tr(
@@ -1319,7 +1516,7 @@ class SetupChecklistDialog(QDialog):
             )
         )
         intro.setWordWrap(True)
-        intro.setStyleSheet(f"color: {MUTED};")
+        intro.setObjectName("mutedLabel")
         layout.addWidget(intro)
 
         checklist = QGroupBox(tr("Readiness Checklist"))
@@ -1685,37 +1882,60 @@ class MainWindow(QMainWindow):
 
     def _build_ui(self) -> None:
         root = QWidget()
+        root.setObjectName("appRoot")
         root_layout = QVBoxLayout(root)
-        root_layout.setContentsMargins(22, 14, 22, 18)
-        root_layout.setSpacing(8)
+        root_layout.setContentsMargins(24, 16, 24, 20)
+        root_layout.setSpacing(10)
 
         header = QHBoxLayout()
+        header.setSpacing(10)
+        app_icon = QApplication.windowIcon()
+        if not app_icon.isNull():
+            icon_label = QLabel()
+            icon_label.setPixmap(app_icon.pixmap(30, 30))
+            icon_label.setFixedSize(32, 32)
+            icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            header.addWidget(icon_label)
+        brand_stack = QVBoxLayout()
+        brand_stack.setSpacing(0)
         brand = QLabel("SubtitleTranslator")
-        brand.setStyleSheet("font-size: 21px; font-weight: 700;")
+        brand.setObjectName("brandLabel")
         version = QLabel(self.version)
-        version.setStyleSheet(f"color: {MUTED}; font-size: 11px;")
+        version.setObjectName("versionLabel")
+        brand_stack.addWidget(brand)
+        brand_stack.addWidget(version)
         privacy = QPushButton(tr("Privacy"))
+        privacy.setObjectName("headerButton")
         privacy.setToolTip(
             tr("View the local-data and network privacy model")
         )
         privacy.clicked.connect(self._show_privacy)
         tools_button = QPushButton(tr("Media Tools"))
+        tools_button.setObjectName("headerButton")
         tools_button.setToolTip(
             tr("Check or install local processing tools")
         )
         tools_button.clicked.connect(self._show_dependency_setup)
         setup_button = QPushButton(tr("Setup"))
+        setup_button.setObjectName("headerButton")
         setup_button.setToolTip(tr("Open the readiness checklist"))
         setup_button.clicked.connect(self._show_setup_checklist)
-        header.addWidget(brand)
-        header.addWidget(version)
+        header.addLayout(brand_stack)
         header.addStretch()
         header.addWidget(setup_button)
         header.addWidget(tools_button)
         header.addWidget(privacy)
         root_layout.addLayout(header)
 
+        header_rule = QFrame()
+        header_rule.setObjectName("headerRule")
+        root_layout.addWidget(header_rule)
+        header_rule_accent = QFrame()
+        header_rule_accent.setObjectName("headerRuleAccent")
+        root_layout.addWidget(header_rule_accent)
+
         self.tabs = QTabWidget()
+        self.tabs.setDocumentMode(True)
         self.tabs.addTab(self._build_prepare_tab(), tr("Prepare"))
         self.tabs.addTab(self._build_recent_tab(), tr("Recent"))
         self.tabs.addTab(self._build_settings_tab(), tr("Settings"))
@@ -1738,7 +1958,7 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.drop_frame)
 
         self.inspect_label = QLabel(tr("No media selected"))
-        self.inspect_label.setStyleSheet(f"color: {MUTED};")
+        self.inspect_label.setObjectName("mutedLabel")
         self.inspect_label.setWordWrap(True)
         layout.addWidget(self.inspect_label)
 
@@ -1748,8 +1968,10 @@ class MainWindow(QMainWindow):
         control_grid.setHorizontalSpacing(14)
         control_grid.setVerticalSpacing(11)
         self.source_combo = QComboBox()
+        self.source_combo.setAccessibleName(tr("Source"))
         self.source_combo.addItem(tr("Auto-detect"), "auto")
         self.target_combo = QComboBox()
+        self.target_combo.setAccessibleName(tr("Target"))
         for language in languages.all_languages():
             display = i18n.display_name(language.code)
             self.source_combo.addItem(display, language.code)
@@ -1765,6 +1987,7 @@ class MainWindow(QMainWindow):
         mode_label = QLabel(tr("Method"))
         control_grid.addWidget(mode_label, 2, 0)
         mode_row = QHBoxLayout()
+        mode_row.setSpacing(0)
         self.mode_group = QButtonGroup(self)
         self.mode_group.setExclusive(True)
         self.mode_buttons: dict[str, QToolButton] = {}
@@ -1777,7 +2000,11 @@ class MainWindow(QMainWindow):
             button = QToolButton()
             button.setText(mode_labels[code])
             button.setCheckable(True)
-            button.setObjectName("modeButton")
+            button.setObjectName("segmentButton")
+            button.setProperty(
+                "segmentPosition",
+                ("first", "middle", "last")[index],
+            )
             button.setMinimumHeight(34)
             if index == 0:
                 button.setChecked(True)
@@ -1794,10 +2021,11 @@ class MainWindow(QMainWindow):
         control_grid.setRowMinimumHeight(3, 42)
 
         sidecar_container = QFrame()
+        sidecar_container.setObjectName("sidecarFrame")
         sidecar_row = QHBoxLayout(sidecar_container)
-        sidecar_row.setContentsMargins(4, 0, 4, 0)
+        sidecar_row.setContentsMargins(12, 8, 8, 8)
         self.sidecar_label = QLabel(tr("Target subtitle: automatic"))
-        self.sidecar_label.setStyleSheet(f"color: {MUTED};")
+        self.sidecar_label.setObjectName("mutedLabel")
         choose_sidecar = QPushButton(tr("Choose Subtitle"))
         choose_sidecar.setMinimumHeight(34)
         choose_sidecar.setIcon(
@@ -1810,6 +2038,7 @@ class MainWindow(QMainWindow):
             self.style().standardIcon(QStyle.StandardPixmap.SP_DialogResetButton)
         )
         clear_sidecar.setToolTip(tr("Clear selected subtitle"))
+        clear_sidecar.setAccessibleName(tr("Clear selected subtitle"))
         clear_sidecar.clicked.connect(self._clear_sidecar)
         sidecar_row.addWidget(self.sidecar_label, 1)
         sidecar_row.addWidget(choose_sidecar)
@@ -1843,7 +2072,7 @@ class MainWindow(QMainWindow):
         action_row = QHBoxLayout()
         self.cost_label = QLabel("")
         self.cost_label.setWordWrap(True)
-        self.cost_label.setStyleSheet(f"color: {MUTED};")
+        self.cost_label.setObjectName("mutedLabel")
         self.cancel_button = QPushButton(tr("Cancel"))
         self.cancel_button.setObjectName("dangerButton")
         self.cancel_button.setIcon(
@@ -1872,6 +2101,7 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.status_label)
 
         self.details_toggle = QToolButton()
+        self.details_toggle.setObjectName("detailsButton")
         self.details_toggle.setText(tr("Details"))
         self.details_toggle.setCheckable(True)
         self.details_toggle.setArrowType(Qt.ArrowType.RightArrow)
@@ -1896,6 +2126,8 @@ class MainWindow(QMainWindow):
         layout.addLayout(details_row)
 
         self.details = QPlainTextEdit()
+        self.details.setObjectName("technicalText")
+        self.details.setAccessibleName(tr("Details"))
         self.details.setReadOnly(True)
         self.details.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
         self.details.setMaximumBlockCount(500)
@@ -1904,8 +2136,9 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.details)
 
         self.result_frame = QFrame()
+        self.result_frame.setObjectName("resultFrame")
         result_layout = QHBoxLayout(self.result_frame)
-        result_layout.setContentsMargins(0, 4, 0, 0)
+        result_layout.setContentsMargins(14, 10, 10, 10)
         self.result_label = QLabel("")
         self.result_label.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
         self.result_label.setWordWrap(True)
@@ -1936,7 +2169,7 @@ class MainWindow(QMainWindow):
 
         top = QHBoxLayout()
         title = QLabel(tr("Recent media"))
-        title.setStyleSheet("font-size: 18px; font-weight: 650;")
+        title.setObjectName("pageTitle")
         refresh = QPushButton(tr("Refresh"))
         refresh.setIcon(
             self.style().standardIcon(QStyle.StandardPixmap.SP_BrowserReload)
@@ -1954,6 +2187,8 @@ class MainWindow(QMainWindow):
         layout.addLayout(top)
 
         self.recent_list = QListWidget()
+        self.recent_list.setAlternatingRowColors(True)
+        self.recent_list.setAccessibleName(tr("Recent media"))
         self.recent_list.itemDoubleClicked.connect(lambda _item: self._play_recent())
         layout.addWidget(self.recent_list, 1)
 
@@ -1981,6 +2216,7 @@ class MainWindow(QMainWindow):
         interface_group = QGroupBox(tr("Application Interface"))
         interface_layout = QGridLayout(interface_group)
         self.interface_combo = QComboBox()
+        self.interface_combo.setAccessibleName(tr("Application language"))
         self.interface_combo.addItem(
             tr("Use System Language ({language})").format(
                 language=i18n.display_name(i18n.system_language_code())
@@ -1995,7 +2231,7 @@ class MainWindow(QMainWindow):
         interface_layout.addWidget(QLabel(tr("Application language")), 0, 0)
         interface_layout.addWidget(self.interface_combo, 0, 1)
         restart_note = QLabel(tr("Language changes apply after restarting the app."))
-        restart_note.setStyleSheet(f"color: {MUTED};")
+        restart_note.setObjectName("mutedLabel")
         restart_note.setWordWrap(True)
         interface_layout.addWidget(restart_note, 1, 1)
         interface_layout.setColumnStretch(1, 1)
@@ -2004,18 +2240,22 @@ class MainWindow(QMainWindow):
         api_group = QGroupBox(tr("API Connections"))
         api_layout = QGridLayout(api_group)
         self.openai_key = QLineEdit()
+        self.openai_key.setAccessibleName("OpenAI")
         self.openai_key.setEchoMode(QLineEdit.EchoMode.Password)
         self.openai_key.setPlaceholderText(tr("Stored in macOS Keychain"))
         self.openai_key.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
         self.os_key = QLineEdit()
+        self.os_key.setAccessibleName("OpenSubtitles")
         self.os_key.setEchoMode(QLineEdit.EchoMode.Password)
         self.os_key.setPlaceholderText(tr("Stored in macOS Keychain"))
         self.os_key.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
         self.openai_state = QLabel("")
         self.os_state = QLabel("")
         test_openai = QPushButton(tr("Test"))
+        test_openai.setAccessibleName(tr("Test") + " OpenAI")
         test_openai.clicked.connect(self._test_openai)
         test_os = QPushButton(tr("Test"))
+        test_os.setAccessibleName(tr("Test") + " OpenSubtitles")
         test_os.clicked.connect(self._test_opensubtitles)
         openai_link = QToolButton()
         openai_link.setText(tr("Get API Key"))
@@ -2052,6 +2292,7 @@ class MainWindow(QMainWindow):
         files_group = QGroupBox(tr("File Locations"))
         files_layout = QGridLayout(files_group)
         self.media_locations = QListWidget()
+        self.media_locations.setAccessibleName(tr("Folders containing media"))
         self.media_locations.setMaximumHeight(105)
         media_buttons = QVBoxLayout()
         add_media = QToolButton()
@@ -2068,12 +2309,14 @@ class MainWindow(QMainWindow):
         files_layout.addLayout(media_buttons, 1, 3)
 
         self.workspace_edit = QLineEdit()
+        self.workspace_edit.setAccessibleName(tr("App working folder"))
         self.workspace_edit.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
         workspace_browse = QToolButton()
         workspace_browse.setIcon(
             self.style().standardIcon(QStyle.StandardPixmap.SP_DirOpenIcon)
         )
         workspace_browse.setToolTip(tr("Choose working folder"))
+        workspace_browse.setAccessibleName(tr("Choose working folder"))
         workspace_browse.clicked.connect(self._choose_workspace)
         workspace_open = QToolButton()
         workspace_open.setText(tr("Open"))
@@ -2084,6 +2327,7 @@ class MainWindow(QMainWindow):
         files_layout.addWidget(workspace_open, 2, 3)
 
         self.output_mode_combo = QComboBox()
+        self.output_mode_combo.setAccessibleName(tr("Output location"))
         self.output_mode_combo.addItem(
             tr("Beside original media"),
             "alongside",
@@ -2093,6 +2337,7 @@ class MainWindow(QMainWindow):
             self._output_mode_changed
         )
         self.custom_output_edit = QLineEdit()
+        self.custom_output_edit.setAccessibleName(tr("Output location"))
         self.custom_output_edit.setLayoutDirection(
             Qt.LayoutDirection.LeftToRight
         )
@@ -2101,6 +2346,7 @@ class MainWindow(QMainWindow):
             self.style().standardIcon(QStyle.StandardPixmap.SP_DirOpenIcon)
         )
         output_browse.setToolTip(tr("Choose output folder"))
+        output_browse.setAccessibleName(tr("Choose output folder"))
         output_browse.clicked.connect(self._choose_output)
         files_layout.addWidget(QLabel(tr("Output location")), 3, 0)
         files_layout.addWidget(self.output_mode_combo, 3, 1)
@@ -2115,15 +2361,21 @@ class MainWindow(QMainWindow):
         self.quality_group = QButtonGroup(self)
         self.quality_group.setExclusive(True)
         self.quality_buttons: dict[str, QToolButton] = {}
-        for code, label in (
+        presets = (
             ("economy", tr("Economy")),
             ("balanced", tr("Balanced")),
             ("best", tr("Best")),
-        ):
+        )
+        preset_row.setSpacing(0)
+        for index, (code, label) in enumerate(presets):
             button = QToolButton()
             button.setText(label)
             button.setCheckable(True)
-            button.setObjectName("modeButton")
+            button.setObjectName("segmentButton")
+            button.setProperty(
+                "segmentPosition",
+                ("first", "middle", "last")[index],
+            )
             button.setMinimumHeight(34)
             button.clicked.connect(
                 lambda _checked=False, preset=code: self._apply_quality_preset(
@@ -2141,12 +2393,14 @@ class MainWindow(QMainWindow):
         translation_layout.addLayout(preset_row, 0, 1, 1, 3)
 
         self.model_combo = QComboBox()
+        self.model_combo.setAccessibleName(tr("OpenAI model"))
         self.model_combo.setEditable(True)
         self.model_combo.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
         self.model_combo.addItems(
             ["gpt-5.6-luna", "gpt-5.6-terra", "gpt-5.6-sol"]
         )
         self.reasoning_combo = QComboBox()
+        self.reasoning_combo.setAccessibleName(tr("Reasoning"))
         for value, label in (
             ("none", tr("None")),
             ("low", tr("Low")),
@@ -2179,6 +2433,7 @@ class MainWindow(QMainWindow):
         )
 
         self.prompt_language_combo = QComboBox()
+        self.prompt_language_combo.setAccessibleName(tr("Prompt profile"))
         for language in languages.all_languages():
             self.prompt_language_combo.addItem(
                 i18n.display_name(language.code),
@@ -2190,6 +2445,8 @@ class MainWindow(QMainWindow):
         translation_layout.addWidget(QLabel(tr("Prompt profile")), 3, 0)
         translation_layout.addWidget(self.prompt_language_combo, 3, 1, 1, 3)
         self.prompt_editor = QPlainTextEdit()
+        self.prompt_editor.setObjectName("technicalText")
+        self.prompt_editor.setAccessibleName(tr("Prompt profile"))
         self.prompt_editor.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
         self.prompt_editor.setMinimumHeight(210)
         translation_layout.addWidget(self.prompt_editor, 4, 0, 1, 4)
@@ -2207,6 +2464,7 @@ class MainWindow(QMainWindow):
         playback_group = QGroupBox(tr("Video Playback"))
         playback_layout = QGridLayout(playback_group)
         self.mpv_path_edit = QLineEdit()
+        self.mpv_path_edit.setAccessibleName(tr("mpv executable"))
         self.mpv_path_edit.setPlaceholderText(tr("Auto-detect mpv"))
         self.mpv_path_edit.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
         mpv_browse = QToolButton()
@@ -2214,6 +2472,7 @@ class MainWindow(QMainWindow):
             self.style().standardIcon(QStyle.StandardPixmap.SP_DialogOpenButton)
         )
         mpv_browse.setToolTip(tr("Choose mpv executable"))
+        mpv_browse.setAccessibleName(tr("Choose mpv executable"))
         mpv_browse.clicked.connect(self._choose_mpv)
         setup = QPushButton(tr("Dual Subtitle Setup"))
         setup.clicked.connect(lambda: MpvSetupDialog(self).exec())

@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.9.0-beta.12
+
+- Redesigned the complete PySide interface around a quiet neutral workspace,
+  clearer hierarchy, flatter sections, and more consistent control spacing.
+- Added restrained classic Macintosh character through crisp rules,
+  monospaced technical details, segmented controls, square toggles, and
+  inverted pressed states.
+- Replaced the app icon with a simpler subtitle-alignment mark and rebuilt
+  every macOS icon size with transparent outer corners.
+- Strengthened keyboard focus visibility, semantic color contrast, and
+  accessible names for icon-only and technical controls.
+- Verified compact, wide, right-to-left, and long-label layouts, and fixed
+  crowding in the mpv dual-subtitle configuration dialog.
+
 ## 0.9.0-beta.11
 
 - Clarified the automatic-review choices as **Use Selected Subtitle** and

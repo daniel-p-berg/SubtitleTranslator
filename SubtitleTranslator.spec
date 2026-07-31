@@ -146,7 +146,7 @@ app = BUNDLE(
         "CFBundleDevelopmentRegion": "en",
         "CFBundleLocalizations": localizations,
         "CFBundleShortVersionString": "0.9.0",
-        "CFBundleVersion": "0.9.0.11",
+        "CFBundleVersion": "0.9.0.12",
         "LSMinimumSystemVersion": "13.0",
         "NSHighResolutionCapable": True,
         "NSAppleEventsUsageDescription": (

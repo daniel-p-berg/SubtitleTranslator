@@ -14,6 +14,8 @@ from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
     QFormLayout,
+    QLabel,
+    QVBoxLayout,
 )
 
 import i18n
@@ -22,7 +24,7 @@ import settings
 from ui import MainWindow, apply_application_style
 
 
-APP_VERSION = "0.9.0-beta.11"
+APP_VERSION = "0.9.0-beta.12"
 
 
 def _choose_first_run_language(
@@ -31,10 +33,20 @@ def _choose_first_run_language(
     """Choose the interface language before constructing first-run screens."""
     dialog = QDialog()
     dialog.setWindowTitle(i18n.tr("Application Interface"))
-    dialog.setMinimumWidth(430)
+    dialog.setMinimumWidth(480)
 
-    layout = QFormLayout(dialog)
+    layout = QVBoxLayout(dialog)
+    layout.setContentsMargins(26, 24, 26, 24)
+    layout.setSpacing(16)
+    title = QLabel(i18n.tr("Application Interface"))
+    title.setObjectName("dialogTitle")
+    layout.addWidget(title)
+
+    form = QFormLayout()
+    form.setHorizontalSpacing(16)
+    form.setVerticalSpacing(12)
     language_combo = QComboBox()
+    language_combo.setAccessibleName(i18n.tr("Application language"))
     system_code = i18n.system_language_code()
     language_combo.addItem(
         i18n.tr("Use System Language ({language})").format(
@@ -44,11 +56,15 @@ def _choose_first_run_language(
     )
     for language in i18n.interface_languages():
         language_combo.addItem(language.display_name, language.code)
-    layout.addRow(i18n.tr("Application language"), language_combo)
+    form.addRow(i18n.tr("Application language"), language_combo)
+    layout.addLayout(form)
 
     buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok)
     buttons.accepted.connect(dialog.accept)
-    layout.addRow(buttons)
+    ok_button = buttons.button(QDialogButtonBox.StandardButton.Ok)
+    if ok_button:
+        ok_button.setObjectName("primaryButton")
+    layout.addWidget(buttons)
 
     if dialog.exec() != QDialog.DialogCode.Accepted:
         return None
