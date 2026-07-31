@@ -19,6 +19,7 @@ from typing import Any, Callable
 
 import app_paths
 import languages
+import network_tls
 from operation_control import CancellationToken
 
 
@@ -538,6 +539,7 @@ def _request_json(
             with urllib.request.urlopen(  # noqa: S310  # nosec B310
                 request,
                 timeout=30,
+                context=network_tls.verified_ssl_context(),
             ) as response:
                 payload = _read_limited(
                     response,
@@ -828,6 +830,7 @@ def _download_link(
         with urllib.request.urlopen(  # noqa: S310  # nosec B310
             request,
             timeout=60,
+            context=network_tls.verified_ssl_context(),
         ) as response:
             data = _read_limited(
                 response,

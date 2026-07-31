@@ -56,6 +56,7 @@ hiddenimports = [
     "languages",
     "media_launcher",
     "muxer",
+    "network_tls",
     "open_subtitles",
     "pipeline",
     "settings",
@@ -145,7 +146,7 @@ app = BUNDLE(
         "CFBundleDevelopmentRegion": "en",
         "CFBundleLocalizations": localizations,
         "CFBundleShortVersionString": "0.9.0",
-        "CFBundleVersion": "0.9.0.5",
+        "CFBundleVersion": "0.9.0.6",
         "LSMinimumSystemVersion": "13.0",
         "NSHighResolutionCapable": True,
         "NSAppleEventsUsageDescription": (

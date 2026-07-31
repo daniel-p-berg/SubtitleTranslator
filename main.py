@@ -17,11 +17,12 @@ from PySide6.QtWidgets import (
 )
 
 import i18n
+import network_tls
 import settings
 from ui import MainWindow, apply_application_style
 
 
-APP_VERSION = "0.9.0-beta.5"
+APP_VERSION = "0.9.0-beta.6"
 
 
 def _choose_first_run_language(
@@ -56,6 +57,10 @@ def _choose_first_run_language(
 
 def main() -> None:
     """Start the Qt application."""
+    smoke_test = os.environ.get("SUBTITLE_TRANSLATOR_SMOKE_TEST") == "1"
+    if smoke_test:
+        network_tls.verified_ssl_context()
+
     application = QApplication(sys.argv)
     application.setApplicationName("SubtitleTranslator")
     application.setApplicationDisplayName("SubtitleTranslator")
@@ -65,7 +70,7 @@ def main() -> None:
     settings_store = settings.SettingsStore()
     first_run = (
         not settings.SETTINGS_PATH.exists()
-        and os.environ.get("SUBTITLE_TRANSLATOR_SMOKE_TEST") != "1"
+        and not smoke_test
     )
     preferences = settings_store.load()
     i18n.install_translators(
@@ -87,7 +92,7 @@ def main() -> None:
 
     window = MainWindow(APP_VERSION, first_run=first_run)
     window.show()
-    if os.environ.get("SUBTITLE_TRANSLATOR_SMOKE_TEST") == "1":
+    if smoke_test:
         QTimer.singleShot(750, application.quit)
     raise SystemExit(application.exec())
 

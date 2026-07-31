@@ -43,6 +43,7 @@ into MKV without re-encoding media.
 - `muxer.py`: transactional MKV remux and post-write verification.
 - `media_launcher.py`: direct external mpv launch.
 - `mpv_config.py`: atomic managed-block preview, backup, apply, and restore.
+- `network_tls.py`: bundled CA discovery and shared verified HTTPS context.
 - `dependencies.py`: bundled/PATH/Homebrew media-tool discovery.
 - `operation_control.py`: cancellation tokens and process-group termination.
 - `diagnostics.py`: metadata-only diagnostics and redacted private export.
@@ -54,7 +55,7 @@ into MKV without re-encoding media.
 python3.12 -m py_compile \
   app_paths.py audio_activity.py chunker.py dependencies.py diagnostics.py \
   extractor.py i18n.py languages.py main.py media_launcher.py mpv_config.py \
-  muxer.py open_subtitles.py operation_control.py pipeline.py settings.py \
+  muxer.py network_tls.py open_subtitles.py operation_control.py pipeline.py settings.py \
   subtitle_sync.py translation_cost.py translator.py ui.py
 python3.12 tools/build_translations.py --check
 python3.12 tools/build_translations.py --compile

@@ -32,6 +32,7 @@ included in `licenses/PYTHON-LICENSE.txt`.
 
 Direct runtime dependencies include:
 
+- certifi, Mozilla Public License 2.0
 - keyring, MIT License
 - Send2Trash, BSD License
 

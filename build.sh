@@ -6,7 +6,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
 APP_NAME="SubtitleTranslator"
-VERSION="${VERSION:-0.9.0-beta.5}"
+VERSION="${VERSION:-0.9.0-beta.6}"
 PYTHON="${PYTHON:-python3.12}"
 ARCH="$(uname -m)"
 TARGET_ARCH="${TARGET_ARCH:-$ARCH}"

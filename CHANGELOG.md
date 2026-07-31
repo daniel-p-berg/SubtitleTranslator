@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.9.0-beta.6
+
+- Fixed certificate verification failures in the universal build for OpenAI,
+  OpenSubtitles, and subtitle-download HTTPS connections.
+- Added a bundled Mozilla CA trust store while keeping hostname and certificate
+  verification mandatory.
+- Added packaged trust-store and verified-context regression coverage.
+
 ## 0.9.0-beta.5
 
 - Fixed first-run language detection when Qt reports a neutral locale instead

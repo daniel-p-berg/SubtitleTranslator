@@ -15,6 +15,7 @@ from urllib.request import Request, urlopen
 import app_paths
 import chunker
 import languages
+import network_tls
 from operation_control import CancellationToken
 
 
@@ -316,6 +317,7 @@ def _request_json(
         with urlopen(  # noqa: S310  # nosec B310
             request,
             timeout=timeout,
+            context=network_tls.verified_ssl_context(),
         ) as response:
             raw = _read_limited_response(response, _MAX_RESPONSE_BYTES)
     except HTTPError as exc:

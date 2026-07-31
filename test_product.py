@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import plistlib
+import ssl
 import stat
 import tempfile
 import threading
@@ -26,6 +27,7 @@ import i18n
 import languages
 import muxer
 import mpv_config
+import network_tls
 import open_subtitles
 from operation_control import (
     CancellationToken,
@@ -58,6 +60,14 @@ Segunda linea
 
 
 class UsabilitySafetyTests(unittest.TestCase):
+    def test_tls_context_uses_bundled_ca_and_requires_verification(self) -> None:
+        network_tls.verified_ssl_context.cache_clear()
+        self.assertTrue(network_tls.ca_bundle_path().is_file())
+
+        context = network_tls.verified_ssl_context()
+        self.assertTrue(context.check_hostname)
+        self.assertEqual(context.verify_mode, ssl.CERT_REQUIRED)
+
     def test_cancellation_terminates_long_running_process(self) -> None:
         token = CancellationToken()
         timer = threading.Timer(0.15, token.cancel)
@@ -844,12 +854,16 @@ class ApiAndTranslationTests(unittest.TestCase):
             translator,
             "urlopen",
             return_value=FakeResponse(oversized),
-        ):
+        ) as urlopen:
             with self.assertRaisesRegex(
                 translator.OpenAIRequestError,
                 "safety limit",
             ):
                 translator._request_json("GET", "/models/test", "key")
+        self.assertIs(
+            urlopen.call_args.kwargs["context"],
+            network_tls.verified_ssl_context(),
+        )
 
     def test_opensubtitles_matches_unicode_titles_and_rejects_wrong_episode(self) -> None:
         matching = open_subtitles.SubtitleCandidate(
