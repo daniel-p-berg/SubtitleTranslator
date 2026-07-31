@@ -5,11 +5,11 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-import subprocess
 from pathlib import Path
 
 import app_paths
-import extractor
+import dependencies
+from operation_control import CancellationToken, run_process
 import subtitle_sync
 
 
@@ -21,6 +21,7 @@ def extract_activity(
     video_path: str,
     *,
     cache_directory: str | Path | None = None,
+    cancellation_token: CancellationToken | None = None,
 ) -> list[subtitle_sync.CueTiming]:
     """
     Return cached coarse audio activity segments for *video_path*.
@@ -33,19 +34,31 @@ def extract_activity(
     cache_path = _cache_path(video, cache_directory)
     cached = _read_cache(cache_path, video)
     if cached is not None:
+        if cancellation_token:
+            cancellation_token.raise_if_cancelled()
         return cached
 
-    duration_ms = _video_duration_ms(str(video))
-    output = _run_silencedetect(str(video))
+    duration_ms = _video_duration_ms(
+        str(video),
+        cancellation_token=cancellation_token,
+    )
+    output = _run_silencedetect(
+        str(video),
+        cancellation_token=cancellation_token,
+    )
     silence_segments = _parse_silence_segments(output, duration_ms)
     activity_segments = _invert_silence_segments(silence_segments, duration_ms)
     _write_cache(cache_path, video, activity_segments)
     return activity_segments
 
 
-def _run_silencedetect(video_path: str) -> str:
+def _run_silencedetect(
+    video_path: str,
+    *,
+    cancellation_token: CancellationToken | None = None,
+) -> str:
     cmd = [
-        extractor.FFMPEG_PATH,
+        dependencies.require_tool("ffmpeg"),
         "-hide_banner",
         "-nostats",
         "-i", video_path,
@@ -55,7 +68,10 @@ def _run_silencedetect(video_path: str) -> str:
         "-f", "null",
         "-",
     ]
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    result = run_process(
+        cmd,
+        cancellation_token=cancellation_token,
+    )
     if result.returncode != 0:
         raise RuntimeError(
             f"ffmpeg could not scan audio activity:\n{result.stderr.strip()}"
@@ -111,15 +127,23 @@ def _invert_silence_segments(
     )
 
 
-def _video_duration_ms(video_path: str) -> int:
+def _video_duration_ms(
+    video_path: str,
+    *,
+    cancellation_token: CancellationToken | None = None,
+) -> int:
     cmd = [
-        extractor.FFPROBE_PATH,
+        dependencies.require_tool("ffprobe"),
         "-v", "error",
         "-show_entries", "format=duration",
         "-of", "default=noprint_wrappers=1:nokey=1",
         video_path,
     ]
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    result = run_process(
+        cmd,
+        cancellation_token=cancellation_token,
+        timeout=60,
+    )
     if result.returncode != 0:
         raise RuntimeError(
             f"ffprobe could not read video duration:\n{result.stderr.strip()}"
@@ -177,7 +201,7 @@ def _cache_path(
     video_path: Path,
     cache_directory: str | Path | None = None,
 ) -> Path:
-    digest = hashlib.sha1(str(video_path).encode("utf-8")).hexdigest()
+    digest = hashlib.sha256(str(video_path).encode("utf-8")).hexdigest()
     directory = (
         Path(cache_directory).expanduser()
         if cache_directory

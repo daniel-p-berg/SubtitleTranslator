@@ -5,12 +5,16 @@ from __future__ import annotations
 import json
 import os
 import stat
+import tempfile
 from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
 import keyring
 from keyring.errors import KeyringError
+
+import languages
+import translation_cost
 
 
 APP_NAME = "SubtitleTranslator"
@@ -27,7 +31,7 @@ SETTINGS_PATH = APP_SUPPORT_DIR / "settings.json"
 LEGACY_SETTINGS_PATH = Path.home() / ".animesub_config.json"
 
 DEFAULT_SETTINGS: dict[str, Any] = {
-    "version": 2,
+    "version": 4,
     "media_locations": [],
     "workspace_directory": str(WORKSPACE_DIR),
     "output_mode": "alongside",
@@ -38,8 +42,10 @@ DEFAULT_SETTINGS: dict[str, Any] = {
     "source_language": "auto",
     "translation_model": "gpt-5.6-luna",
     "reasoning_effort": "low",
+    "quality_preset": "custom",
     "prompt_overrides": {},
     "mpv_path": "",
+    "interface_language": "system",
     "theme": "system",
 }
 
@@ -73,19 +79,7 @@ class SettingsStore:
             if key in loaded and _compatible_type(loaded[key], DEFAULT_SETTINGS[key]):
                 settings[key] = loaded[key]
 
-        settings["media_locations"] = [
-            str(Path(item).expanduser())
-            for item in settings["media_locations"]
-            if isinstance(item, str) and item.strip()
-        ]
-        settings["prompt_overrides"] = {
-            str(key): str(value)
-            for key, value in settings["prompt_overrides"].items()
-            if isinstance(key, str) and isinstance(value, str)
-        }
-        if settings["output_mode"] not in {"alongside", "custom"}:
-            settings["output_mode"] = "alongside"
-        return settings
+        return _validated_settings(settings)
 
     def save(self, settings: dict[str, Any]) -> None:
         """Write only recognized, non-secret preferences with private permissions."""
@@ -94,15 +88,23 @@ class SettingsStore:
             if key in settings and _compatible_type(settings[key], payload[key]):
                 payload[key] = settings[key]
 
+        payload = _validated_settings(payload)
         self.path.parent.mkdir(parents=True, exist_ok=True)
         _chmod_private_directory(self.path.parent)
-        temporary = self.path.with_suffix(".tmp")
-        temporary.write_text(
-            json.dumps(payload, indent=2, ensure_ascii=False),
-            encoding="utf-8",
+        descriptor, temporary_name = tempfile.mkstemp(
+            prefix=f".{self.path.name}.",
+            suffix=".tmp",
+            dir=self.path.parent,
         )
-        os.chmod(temporary, stat.S_IRUSR | stat.S_IWUSR)
-        os.replace(temporary, self.path)
+        temporary = Path(temporary_name)
+        try:
+            with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+                json.dump(payload, handle, indent=2, ensure_ascii=False)
+                handle.write("\n")
+            os.chmod(temporary, stat.S_IRUSR | stat.S_IWUSR)
+            os.replace(temporary, self.path)
+        finally:
+            temporary.unlink(missing_ok=True)
 
     def update(self, **changes: Any) -> dict[str, Any]:
         """Merge and save preference changes."""
@@ -224,6 +226,75 @@ def _compatible_type(value: Any, default: Any) -> bool:
     if isinstance(default, bool):
         return isinstance(value, bool)
     return isinstance(value, type(default))
+
+
+def _validated_settings(values: dict[str, Any]) -> dict[str, Any]:
+    """Normalize persisted values before they reach pipeline or UI controls."""
+    result = deepcopy(values)
+    supported_languages = {profile.code for profile in languages.all_languages()}
+    result["version"] = DEFAULT_SETTINGS["version"]
+
+    locations: list[str] = []
+    for item in result.get("media_locations", []):
+        if not isinstance(item, str) or not item.strip():
+            continue
+        normalized = str(Path(item).expanduser())
+        if normalized not in locations:
+            locations.append(normalized)
+    result["media_locations"] = locations[:12]
+
+    if result.get("target_language") not in supported_languages:
+        result["target_language"] = DEFAULT_SETTINGS["target_language"]
+    if result.get("source_language") not in {"auto", *supported_languages}:
+        result["source_language"] = DEFAULT_SETTINGS["source_language"]
+    if result.get("interface_language") not in {"system", *supported_languages}:
+        result["interface_language"] = DEFAULT_SETTINGS["interface_language"]
+    if result.get("reasoning_effort") not in {
+        "none",
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max",
+    }:
+        result["reasoning_effort"] = DEFAULT_SETTINGS["reasoning_effort"]
+    if result.get("quality_preset") not in {
+        "economy",
+        "balanced",
+        "best",
+        "custom",
+    }:
+        result["quality_preset"] = DEFAULT_SETTINGS["quality_preset"]
+    if result.get("output_mode") not in {"alongside", "custom"}:
+        result["output_mode"] = DEFAULT_SETTINGS["output_mode"]
+    if result.get("theme") not in {"system", "light", "dark"}:
+        result["theme"] = DEFAULT_SETTINGS["theme"]
+
+    for key in (
+        "workspace_directory",
+        "translation_model",
+    ):
+        value = str(result.get(key, "")).strip()
+        result[key] = value or DEFAULT_SETTINGS[key]
+
+    matching_preset = translation_cost.preset_for(
+        result["translation_model"],
+        result["reasoning_effort"],
+    )
+    if result["quality_preset"] != "custom":
+        result["quality_preset"] = matching_preset
+
+    overrides: dict[str, str] = {}
+    raw_overrides = result.get("prompt_overrides", {})
+    if isinstance(raw_overrides, dict):
+        for key, value in raw_overrides.items():
+            if key not in supported_languages or not isinstance(value, str):
+                continue
+            valid, _message = languages.validate_prompt_template(value)
+            if valid:
+                overrides[key] = value
+    result["prompt_overrides"] = overrides
+    return result
 
 
 def _chmod_private_directory(path: Path) -> None:

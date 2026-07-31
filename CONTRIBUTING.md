@@ -7,6 +7,8 @@ language-profile fixes.
 
 ```bash
 python3.12 -m pip install -r requirements-dev.txt
+python3.12 tools/build_translations.py --check
+python3.12 tools/build_translations.py --compile
 python3.12 test_pipeline.py
 python3.12 -m unittest -v test_product.py
 python3.12 main.py
@@ -33,5 +35,10 @@ brew install mpv
 - Add focused tests for behavior changes.
 - Update privacy documentation when adding any network or storage behavior.
 - Keep language rules general rather than tailoring matching logic to one title.
+
+Interface corrections are especially welcome. Edit the relevant Qt `.ts` file
+under `translations/`, preserve every `{placeholder}` and technical token, then
+run the catalog check and compiler above. See
+[`translations/README.md`](translations/README.md) for the review checklist.
 
 Run both test suites and `bash -n build.sh` before opening a pull request.

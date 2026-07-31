@@ -10,6 +10,7 @@ import os
 import re
 import subprocess
 import tempfile
+import unicodedata
 from collections import Counter, defaultdict
 from dataclasses import dataclass
 from pathlib import Path
@@ -108,28 +109,34 @@ _TITLE_NOISE_TOKENS = {
     "h264",
     "h265",
     "hevc",
+    "and",
+    "for",
+    "from",
     "proper",
     "repack",
     "sub",
     "subs",
     "subtitle",
     "subtitles",
+    "the",
     "web",
     "webdl",
     "webrip",
+    "with",
     "x264",
     "x265",
 }
+_MAX_SUBTITLE_SCORE_BYTES = 2 * 1024 * 1024
 
-def _check_tool(path: str, name: str) -> None:
-    """Raise a clear exception if a required tool is not found at its expected path."""
-    resolved = dependencies.resolve_tool(name)
-    if resolved:
-        return
-    raise FileNotFoundError(
-        f"{name} is required for subtitle inspection. "
-        "Install FFmpeg with Homebrew: brew install ffmpeg"
-    )
+def _check_tool(_path: str, name: str) -> str:
+    """Resolve a tool at call time so guided installs work without a restart."""
+    try:
+        return dependencies.require_tool(name)
+    except FileNotFoundError as exc:
+        raise FileNotFoundError(
+            f"{name} is required for subtitle inspection. "
+            "Install FFmpeg with Homebrew: brew install ffmpeg"
+        ) from exc
 
 
 def _probe_subtitle_streams(input_path: str) -> list[dict]:
@@ -146,11 +153,11 @@ def _probe_subtitle_streams(input_path: str) -> list[dict]:
         FileNotFoundError: If ffprobe is not installed.
         RuntimeError: If ffprobe fails to read the file.
     """
-    _check_tool(FFPROBE_PATH, "ffprobe")
+    ffprobe_path = _check_tool(FFPROBE_PATH, "ffprobe")
 
     cmd = [
-        FFPROBE_PATH,
-        "-v", "quiet",
+        ffprobe_path,
+        "-v", "error",
         "-print_format", "json",
         "-show_streams",
         "-select_streams", "s",
@@ -161,6 +168,8 @@ def _probe_subtitle_streams(input_path: str) -> list[dict]:
         cmd,
         capture_output=True,
         text=True,
+        timeout=60,
+        check=False,
     )
 
     if result.returncode != 0:
@@ -383,7 +392,7 @@ def extract_subtitle_stream(
     output_directory: str | Path | None = None,
 ) -> str:
     """Extract one embedded text subtitle as a clean, position-free SRT."""
-    _check_tool(FFMPEG_PATH, "ffmpeg")
+    ffmpeg_path = _check_tool(FFMPEG_PATH, "ffmpeg")
     stream_index = stream.get("index")
     codec_name = str(stream.get("codec_name", "")).lower().strip()
     if stream_index is None:
@@ -404,7 +413,7 @@ def extract_subtitle_stream(
     language_code = profile.code if profile else "und"
     output_path = output_dir / f"{source.stem}.{language_code}.srt"
     command = [
-        FFMPEG_PATH,
+        ffmpeg_path,
         "-y",
         "-i",
         str(source),
@@ -414,7 +423,12 @@ def extract_subtitle_stream(
         "srt",
         str(output_path),
     ]
-    result = subprocess.run(command, capture_output=True, text=True)
+    result = subprocess.run(
+        command,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
     if result.returncode != 0:
         raise RuntimeError(
             f"ffmpeg failed to extract subtitle track #{stream_index}:\n"
@@ -443,8 +457,15 @@ def find_external_subtitles(
         return []
 
     requested = languages.get_language(language_code) if language_code else None
+    discovered_files = list(app_paths.iter_files_recursive(search_root))
+    container_video_count = sum(
+        path.suffix.lower() in app_paths.VIDEO_EXTENSIONS
+        for path in discovered_files
+    )
+    video_episode = _episode_identity(video_path.stem)
+    video_year = _release_year(video_path.stem)
     candidates: list[ExternalSubtitle] = []
-    for path in app_paths.iter_files_recursive(search_root):
+    for path in discovered_files:
         if path.suffix.lower() not in app_paths.SUBTITLE_EXTENSIONS:
             continue
         try:
@@ -455,7 +476,7 @@ def find_external_subtitles(
             continue
 
         relative_text = " ".join(path.relative_to(search_root).parts)
-        profile = languages.identify_language("", relative_text)
+        profile = _identify_sidecar_language(path, video_path, search_root)
         if requested and (profile is None or profile.code != requested.code):
             continue
         tokens = _filename_tokens(relative_text)
@@ -464,11 +485,22 @@ def find_external_subtitles(
 
         video_tokens = _title_tokens(video_path.stem)
         subtitle_tokens = _title_tokens(path.stem)
+        subtitle_episode = _episode_identity(path.stem)
+        if video_episode and subtitle_episode and video_episode != subtitle_episode:
+            continue
+        subtitle_year = _release_year(path.stem)
+        if video_year and subtitle_year and video_year != subtitle_year:
+            continue
         overlap = len(video_tokens & subtitle_tokens)
         overlap_ratio = overlap / max(
             1,
             min(len(video_tokens), len(subtitle_tokens)),
         )
+        if overlap_ratio < 0.45 and not (
+            container_video_count == 1
+            and _is_generic_subtitle_name(path, profile)
+        ):
+            continue
         score = overlap_ratio * 100
         if profile:
             score += 25
@@ -482,10 +514,6 @@ def find_external_subtitles(
             score -= 15
         score += _subtitle_content_score(path)
 
-        # Unknown-language files are viable references only when their names
-        # clearly belong to the selected media.
-        if profile is None and overlap_ratio < 0.45:
-            continue
         candidates.append(ExternalSubtitle(path, profile, score))
 
     return sorted(
@@ -650,8 +678,13 @@ def find_external_image_subtitle_timings(
     if not search_root.is_dir():
         return None
 
-    candidates: list[tuple[int, float, Path, list[subtitle_sync.CueTiming], str]] = []
-    for path in app_paths.iter_files_recursive(search_root):
+    discovered_files = list(app_paths.iter_files_recursive(search_root))
+    container_video_count = sum(
+        path.suffix.lower() in app_paths.VIDEO_EXTENSIONS
+        for path in discovered_files
+    )
+    candidates: list[tuple[float, int, Path, list[subtitle_sync.CueTiming], str]] = []
+    for path in discovered_files:
         if path.suffix.lower() not in app_paths.IMAGE_SUBTITLE_EXTENSIONS:
             continue
         try:
@@ -663,9 +696,12 @@ def find_external_image_subtitle_timings(
         cues, label = result
         if len(cues) < 5:
             continue
+        score = _external_image_subtitle_score(path, video_path, search_root)
+        if score < 45 and container_video_count != 1:
+            continue
         candidates.append((
+            score,
             len(cues),
-            _external_image_subtitle_score(path, video_path, search_root),
             path,
             cues,
             label,
@@ -674,7 +710,10 @@ def find_external_image_subtitle_timings(
     if not candidates:
         return None
 
-    _count, _score, path, cues, label = max(candidates, key=lambda item: (item[0], item[1]))
+    _score, _count, path, cues, label = max(
+        candidates,
+        key=lambda item: (item[0], item[1]),
+    )
     return cues, f"external image {path.name} {label}"
 
 
@@ -773,8 +812,9 @@ def _pick_image_subtitle_stream(
 
 def _subtitle_packet_timings(input_path: str, stream_index: int) -> list[subtitle_sync.CueTiming]:
     """Read subtitle packet timestamps for the absolute ffprobe stream index."""
+    ffprobe_path = _check_tool(FFPROBE_PATH, "ffprobe")
     cmd = [
-        FFPROBE_PATH,
+        ffprobe_path,
         "-v", "error",
         "-select_streams", "s",
         "-show_packets",
@@ -782,7 +822,13 @@ def _subtitle_packet_timings(input_path: str, stream_index: int) -> list[subtitl
         "-of", "json",
         input_path,
     ]
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    result = subprocess.run(
+        cmd,
+        capture_output=True,
+        text=True,
+        timeout=60,
+        check=False,
+    )
     if result.returncode != 0:
         raise RuntimeError(
             f"ffprobe failed reading subtitle packet timings:\n{result.stderr.strip()}"
@@ -856,14 +902,30 @@ def _pick_external_english_subtitle(input_path: str) -> Path | None:
     if not search_root.is_dir():
         return None
 
+    discovered_files = list(app_paths.iter_files_recursive(search_root))
+    container_video_count = sum(
+        path.suffix.lower() in app_paths.VIDEO_EXTENSIONS
+        for path in discovered_files
+    )
     candidates: list[tuple[float, int, Path]] = []
-    for path in app_paths.iter_files_recursive(search_root):
+    for path in discovered_files:
         if path.resolve() == video_path:
             continue
         if path.suffix.lower() not in app_paths.SUBTITLE_EXTENSIONS:
             continue
         score = _external_english_subtitle_score(path, video_path, search_root)
         if score is None:
+            continue
+        video_tokens = _title_tokens(video_path.stem)
+        subtitle_tokens = _title_tokens(path.stem)
+        overlap_ratio = len(video_tokens & subtitle_tokens) / max(
+            1,
+            min(len(video_tokens), len(subtitle_tokens)),
+        )
+        if overlap_ratio < 0.45 and not (
+            container_video_count == 1
+            and _is_generic_subtitle_name(path, languages.get_language("en"))
+        ):
             continue
         try:
             size = path.stat().st_size
@@ -919,7 +981,11 @@ def _external_english_subtitle_score(
 def _subtitle_content_score(subtitle_path: Path) -> float:
     """Prefer dialogue-like subtitles over SDH/CC-style subtitle files."""
     try:
-        raw = subtitle_path.read_text(encoding="utf-8-sig", errors="replace")
+        with subtitle_path.open("rb") as source:
+            raw = source.read(_MAX_SUBTITLE_SCORE_BYTES).decode(
+                "utf-8-sig",
+                errors="replace",
+            )
     except OSError:
         return 0.0
 
@@ -1010,7 +1076,71 @@ def _has_forced_or_signs_tokens(tokens: set[str]) -> bool:
 
 def _filename_tokens(text: str) -> set[str]:
     """Tokenize filename/path text for loose language and title matching."""
-    return set(re.findall(r"[a-z0-9]+", text.lower()))
+    normalized = unicodedata.normalize("NFKC", text).casefold()
+    return set(re.findall(r"[^\W_]+", normalized, flags=re.UNICODE))
+
+
+def _identify_sidecar_language(
+    path: Path,
+    video_path: Path,
+    search_root: Path,
+) -> languages.LanguageProfile | None:
+    """Read explicit language markers without treating title words as metadata."""
+    try:
+        relative = path.relative_to(search_root)
+    except ValueError:
+        return None
+
+    for parent in reversed(relative.parts[:-1]):
+        profile = languages.identify_language(parent)
+        if profile and _normalized_marker(parent) in profile.search_tokens:
+            return profile
+
+    profile = languages.identify_language(path.stem)
+    if profile and _normalized_marker(path.stem) in profile.search_tokens:
+        return profile
+
+    subtitle_parts = _marker_parts(path.stem)
+    video_parts = _marker_parts(video_path.stem)
+    common_prefix = 0
+    for subtitle_part, video_part in zip(subtitle_parts, video_parts):
+        if subtitle_part != video_part:
+            break
+        common_prefix += 1
+
+    candidates = (
+        subtitle_parts[common_prefix:]
+        if common_prefix
+        else subtitle_parts
+    )
+    video_groups = set(_marker_groups(video_parts))
+    for marker in _marker_groups(candidates):
+        if not common_prefix and marker in video_groups:
+            continue
+        profile = languages.identify_language(marker)
+        if profile and marker in profile.search_tokens:
+            return profile
+    return None
+
+
+def _marker_parts(text: str) -> tuple[str, ...]:
+    return tuple(
+        _normalized_marker(part)
+        for part in re.split(r"[\s._\[\](){}]+", text)
+        if _normalized_marker(part)
+    )
+
+
+def _marker_groups(parts: tuple[str, ...]) -> tuple[str, ...]:
+    groups: list[str] = []
+    for end in range(len(parts), 0, -1):
+        for width in range(1, min(3, end) + 1):
+            groups.append("".join(parts[end - width:end]))
+    return tuple(groups)
+
+
+def _normalized_marker(text: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "", text.casefold())
 
 
 def _title_tokens(text: str) -> set[str]:
@@ -1019,8 +1149,58 @@ def _title_tokens(text: str) -> set[str]:
     return {
         token
         for token in tokens
-        if len(token) >= 3 and token not in _TITLE_NOISE_TOKENS
+        if (
+            (len(token) >= 3 or any(ord(character) > 127 for character in token))
+            and token not in _TITLE_NOISE_TOKENS
+        )
     }
+
+
+def _is_generic_subtitle_name(
+    path: Path,
+    profile: languages.LanguageProfile | None,
+) -> bool:
+    """Recognize names such as ``English.srt`` inside one-video releases."""
+    tokens = _filename_tokens(path.stem)
+    allowed = {
+        "default",
+        "dialogue",
+        "full",
+        "main",
+        "sub",
+        "subs",
+        "subtitle",
+        "subtitles",
+    }
+    if profile:
+        for value in (
+            profile.code,
+            profile.name,
+            profile.opensubtitles_code,
+            profile.mux_code,
+            *profile.aliases,
+        ):
+            allowed.update(_filename_tokens(value))
+    return bool(tokens) and all(token.isdecimal() or token in allowed for token in tokens)
+
+
+def _episode_identity(text: str) -> tuple[int, int] | None:
+    """Return a season/episode pair from common sidecar naming conventions."""
+    normalized = unicodedata.normalize("NFKC", text)
+    for pattern in (
+        r"(?i)(?<![a-z0-9])s(\d{1,2})[ ._-]*e(\d{1,3})(?!\d)",
+        r"(?i)(?<![a-z0-9])(\d{1,2})x(\d{1,3})(?!\d)",
+    ):
+        match = re.search(pattern, normalized)
+        if match:
+            return int(match.group(1)), int(match.group(2))
+    return None
+
+
+def _release_year(text: str) -> int | None:
+    """Return the first plausible screen release year in a filename."""
+    match = re.search(r"(?<!\d)(?:19|20)\d{2}(?!\d)", text)
+    return int(match.group()) if match else None
 
 
 _INDEX_RE = re.compile(r"^\d+\s*$")
@@ -1398,7 +1578,7 @@ def convert_to_srt(
         return out_path
 
     # Convert ASS/SSA → SRT via ffmpeg
-    _check_tool(FFMPEG_PATH, "ffmpeg")
+    ffmpeg_path = _check_tool(FFMPEG_PATH, "ffmpeg")
     stem = Path(input_path).stem
     output_dir = (
         Path(output_directory).expanduser()
@@ -1409,13 +1589,18 @@ def convert_to_srt(
     out_path = str(output_dir / f"{stem}.srt")
 
     cmd = [
-        FFMPEG_PATH,
+        ffmpeg_path,
         "-y",
         "-i", input_path,
         "-c:s", "srt",
         out_path,
     ]
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    result = subprocess.run(
+        cmd,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
 
     if result.returncode != 0:
         raise RuntimeError(
@@ -1480,7 +1665,7 @@ def extract_english_subtitles(input_path: str) -> str:
                       (PGS, DVDSUB, etc.) which cannot be translated,
                       or if ffmpeg extraction fails.
     """
-    _check_tool(FFMPEG_PATH, "ffmpeg")
+    ffmpeg_path = _check_tool(FFMPEG_PATH, "ffmpeg")
 
     input_path = str(Path(input_path).resolve())
     streams = _probe_subtitle_streams(input_path)
@@ -1515,7 +1700,7 @@ def extract_english_subtitles(input_path: str) -> str:
     # Map using the absolute stream index; ffmpeg's -map 0:INDEX selects by
     # global index. We use the stream's own index field directly.
     cmd = [
-        FFMPEG_PATH,
+        ffmpeg_path,
         "-y",                          # overwrite without asking
         "-i", input_path,
         "-map", f"0:{stream_index}",   # select only this subtitle stream
@@ -1527,6 +1712,7 @@ def extract_english_subtitles(input_path: str) -> str:
         cmd,
         capture_output=True,
         text=True,
+        check=False,
     )
 
     if result.returncode != 0:

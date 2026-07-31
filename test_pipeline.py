@@ -871,7 +871,7 @@ def test_media_discovery_searches_newest_folder() -> tuple[bool, str]:
         os.utime(folder, (new_time, new_time))
 
         found = app_paths.find_latest_video_in_media_dir(media_dir)
-        if found != movie:
+        if found != movie.resolve():
             return False, f"Expected {movie}, got {found}"
     return True, "Newest release folder selects full movie, not sample"
 
@@ -898,7 +898,7 @@ def test_media_discovery_ignores_app_folders() -> tuple[bool, str]:
         try:
             app_paths.APP_MANAGED_DIRS = (workspace,)
             found = app_paths.find_latest_video_in_media_dir(media_dir)
-            if found != direct:
+            if found != direct.resolve():
                 return False, f"Expected {direct}, got {found}"
         finally:
             app_paths.APP_MANAGED_DIRS = original_managed
@@ -1444,7 +1444,7 @@ def test_recent_merged_files_are_sorted_and_filtered() -> tuple[bool, str]:
         os.utime(hidden, (300, 300))
 
         result = media_launcher.recent_merged_files(limit=5, directory=merged)
-        if result != [newest, older]:
+        if result != [newest.resolve(), older.resolve()]:
             return False, f"Unexpected recent-media order/filtering: {result}"
     return True, "Recent merged media sorted newest-first and partials ignored"
 

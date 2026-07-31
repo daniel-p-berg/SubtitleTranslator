@@ -14,11 +14,17 @@ from send2trash import send2trash
 
 import app_paths
 import audio_activity
+import diagnostics as app_diagnostics
 import extractor
 import languages
 import muxer
 import open_subtitles
+from operation_control import (
+    CancellationToken,
+    OperationCancelled,
+)
 import subtitle_sync
+import translation_cost
 import translator
 
 
@@ -48,6 +54,7 @@ class MediaInspection:
     sidecars: tuple[extractor.ExternalSubtitle, ...]
     suggested_source_language: str
     target_available: bool
+    duration_seconds: float
 
 
 @dataclass
@@ -87,6 +94,7 @@ class PipelineResult:
     target_origin: str
     original_moved_to_trash: bool
     warnings: tuple[str, ...]
+    diagnostics: dict = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -121,9 +129,19 @@ class CandidateReviewRequired(RuntimeError):
 class SubtitlePipeline:
     """Coordinate the existing media helpers through a generic workflow."""
 
-    def __init__(self, progress: ProgressCallback | None = None) -> None:
+    def __init__(
+        self,
+        progress: ProgressCallback | None = None,
+        *,
+        cancellation_token: CancellationToken | None = None,
+        diagnostics_recorder: app_diagnostics.DiagnosticsRecorder | None = None,
+    ) -> None:
         self.progress = progress or (lambda _stage, _message, _percent: None)
+        self.cancellation_token = cancellation_token
+        self.diagnostics_recorder = diagnostics_recorder
         self._warnings: list[str] = []
+        self._translation_input_tokens = 0
+        self._translation_output_tokens = 0
 
     def inspect(
         self,
@@ -133,6 +151,7 @@ class SubtitlePipeline:
         media_roots: list[str] | None = None,
     ) -> MediaInspection:
         """Inventory embedded and sidecar subtitles without changing media."""
+        self._check_cancelled()
         video = Path(video_path).expanduser().resolve()
         streams = extractor.probe_subtitle_streams(str(video))
         target = languages.get_language(target_language)
@@ -180,12 +199,17 @@ class SubtitlePipeline:
                 for item in sidecars
             )
         )
+        try:
+            duration_seconds = muxer.media_duration_seconds(video)
+        except Exception:
+            duration_seconds = 0.0
         return MediaInspection(
             str(video),
             tuple(summaries),
             tuple(sidecars),
             source_profile.code if source_profile else "auto",
             target_available,
+            duration_seconds,
         )
 
     def search(
@@ -202,11 +226,20 @@ class SubtitlePipeline:
             video_path,
             target_language,
             query_override=query_override,
+            cancellation_token=self.cancellation_token,
+            event_callback=lambda action, details: self._record_external_event(
+                "opensubtitles",
+                action,
+                details,
+            ),
         )
 
     def run(self, options: PipelineOptions) -> PipelineResult:
         """Prepare a target subtitle and optionally create a verified MKV."""
         self._warnings = []
+        self._translation_input_tokens = 0
+        self._translation_output_tokens = 0
+        self._check_cancelled()
         video = Path(options.video_path).expanduser().resolve()
         if not video.is_file():
             raise FileNotFoundError(f"Media file not found: {video}")
@@ -215,10 +248,10 @@ class SubtitlePipeline:
             options.workspace_directory or app_paths.WORKSPACE_DIR
         ).expanduser()
         app_paths.ensure_output_dirs(workspace)
-        job_directory = _new_job_directory(workspace, video)
 
         self._emit("inspect", "Inspecting media and subtitle tracks", 5)
         streams = extractor.probe_subtitle_streams(str(video))
+        job_directory = _new_job_directory(workspace, video)
         reference = self._resolve_reference(
             video,
             streams,
@@ -284,8 +317,10 @@ class SubtitlePipeline:
                 str(video),
                 merge_tracks,
                 output_directory=output_directory,
+                cancellation_token=self.cancellation_token,
             )
             if options.delete_original_after_merge:
+                self._check_cancelled()
                 self._emit("cleanup", "Moving the verified original to Trash", 94)
                 try:
                     send2trash(str(video))
@@ -297,18 +332,53 @@ class SubtitlePipeline:
                     )
 
         if options.cleanup_intermediates:
-            shutil.rmtree(job_directory, ignore_errors=True)
+            try:
+                shutil.rmtree(job_directory)
+            except OSError as exc:
+                self._warn(
+                    "The job finished, but its working files could not be "
+                    f"removed: {exc}"
+                )
         else:
-            self._write_job_summary(
-                job_directory,
-                video,
-                reference,
-                target,
-                final_subtitle,
-                merged_path,
-            )
+            try:
+                self._write_job_summary(
+                    job_directory,
+                    video,
+                    reference,
+                    target,
+                    final_subtitle,
+                    merged_path,
+                )
+            except OSError as exc:
+                self._warn(
+                    "The output is ready, but the local job summary could not "
+                    f"be saved: {exc}"
+                )
 
-        self._emit("complete", "Ready to watch", 100)
+        self._emit(
+            "complete",
+            "Ready to watch",
+            100,
+            check_cancellation=False,
+        )
+        self._update_diagnostics_summary(
+            status="completed",
+            source_language=reference.language_code if reference else "und",
+            target_language=target_language.code,
+            target_origin=target.origin,
+            final_subtitle_filename=(
+                Path(final_subtitle).name if final_subtitle else ""
+            ),
+            merged_filename=Path(merged_path).name if merged_path else "",
+            warning_count=len(self._warnings),
+            translation_input_tokens=self._translation_input_tokens,
+            translation_output_tokens=self._translation_output_tokens,
+            translation_cost_usd=translation_cost.cost_from_usage(
+                options.translation_model,
+                self._translation_input_tokens,
+                self._translation_output_tokens,
+            ),
+        )
         return PipelineResult(
             str(video),
             final_subtitle,
@@ -318,6 +388,11 @@ class SubtitlePipeline:
             target.origin,
             moved_original,
             tuple(self._warnings),
+            (
+                self.diagnostics_recorder.report()
+                if self.diagnostics_recorder
+                else {}
+            ),
         )
 
     def _resolve_reference(
@@ -430,6 +505,10 @@ class SubtitlePipeline:
             return _Target(normalized, "selected file", False)
 
         if options.selected_candidate:
+            self._record_candidate(
+                options.selected_candidate,
+                decision="selected by user",
+            )
             path = open_subtitles.download_subtitle(
                 options.opensubtitles_api_key,
                 options.selected_candidate,
@@ -437,6 +516,12 @@ class SubtitlePipeline:
                 language_code=target.code,
                 workspace_directory=options.workspace_directory,
                 output_directory=job_directory,
+                cancellation_token=self.cancellation_token,
+                event_callback=lambda action, details: self._record_external_event(
+                    "opensubtitles",
+                    action,
+                    details,
+                ),
             )
             normalized = self._normalize_subtitle(
                 path,
@@ -492,10 +577,20 @@ class SubtitlePipeline:
                 str(video),
                 target.code,
                 limit=50,
+                cancellation_token=self.cancellation_token,
+                event_callback=lambda action, details: self._record_external_event(
+                    "opensubtitles",
+                    action,
+                    details,
+                ),
             )
             search_candidates = search_result.automatic_matches
             if search_candidates:
                 candidate = search_candidates[0]
+                self._record_candidate(
+                    candidate,
+                    decision="automatic title match",
+                )
                 path = open_subtitles.download_subtitle(
                     options.opensubtitles_api_key,
                     candidate,
@@ -503,6 +598,12 @@ class SubtitlePipeline:
                     language_code=target.code,
                     workspace_directory=options.workspace_directory,
                     output_directory=job_directory,
+                    cancellation_token=self.cancellation_token,
+                    event_callback=lambda action, details: self._record_external_event(
+                        "opensubtitles",
+                        action,
+                        details,
+                    ),
                 )
                 normalized = self._normalize_subtitle(
                     path,
@@ -576,6 +677,12 @@ class SubtitlePipeline:
                 f"Translating chunk {current} of {total}",
                 42 + int(12 * current / max(1, total)),
             ),
+            cancellation_token=self.cancellation_token,
+            event_callback=lambda action, details: self._record_external_event(
+                "openai",
+                action,
+                details,
+            ),
         )
         path = job_directory / f"translated.{target.code}.srt"
         path.write_text(translated, encoding="utf-8")
@@ -626,18 +733,29 @@ class SubtitlePipeline:
                     str(video),
                     options.target_language,
                     limit=12,
+                    cancellation_token=self.cancellation_token,
+                    event_callback=lambda action, details: self._record_external_event(
+                        "opensubtitles",
+                        action,
+                        details,
+                    ),
                 )
             except open_subtitles.OpenSubtitlesError:
                 candidates = []
 
         rejected: list[str] = []
         for index, candidate in enumerate(candidates, start=1):
+            self._check_cancelled()
             if candidate.file_id == target.candidate_id:
                 continue
             self._emit(
                 "sync",
                 f"Trying subtitle candidate {index} of {len(candidates)}",
                 min(70, 55 + index),
+            )
+            self._record_candidate(
+                candidate,
+                decision=f"timing validation attempt {index}",
             )
             try:
                 downloaded = open_subtitles.download_subtitle(
@@ -647,6 +765,12 @@ class SubtitlePipeline:
                     language_code=options.target_language,
                     workspace_directory=options.workspace_directory,
                     output_directory=job_directory,
+                    cancellation_token=self.cancellation_token,
+                    event_callback=lambda action, details: self._record_external_event(
+                        "opensubtitles",
+                        action,
+                        details,
+                    ),
                 )
                 normalized = self._normalize_subtitle(
                     downloaded,
@@ -675,6 +799,11 @@ class SubtitlePipeline:
                         candidate.file_id,
                     )
                 if alternate_result.confidence != "low":
+                    self._record_candidate(
+                        candidate,
+                        decision="accepted after timing validation",
+                        status="accepted",
+                    )
                     return _Target(
                         alternate_result.output_path,
                         "OpenSubtitles",
@@ -683,8 +812,20 @@ class SubtitlePipeline:
                         candidate.file_id,
                     )
                 rejected.append(alternate_result.message)
+                self._record_candidate(
+                    candidate,
+                    decision=alternate_result.message,
+                    status="rejected",
+                )
+            except OperationCancelled:
+                raise
             except Exception as exc:  # noqa: BLE001
                 rejected.append(str(exc))
+                self._record_candidate(
+                    candidate,
+                    decision=str(exc),
+                    status="rejected",
+                )
 
         detail = rejected[-1] if rejected else (
             result.message if result else "No candidate could be validated."
@@ -710,6 +851,7 @@ class SubtitlePipeline:
                 target_path,
                 str(output_path),
             )
+            self._record_sync(label, result)
             if result.confidence != "low":
                 self._validate_duration(video, result.output_path)
             return result
@@ -733,6 +875,7 @@ class SubtitlePipeline:
                 reference_label=reference_label,
                 tolerance_ms=1500,
             )
+            self._record_sync(label, result)
             if result.confidence != "low":
                 self._validate_duration(video, result.output_path)
             return result
@@ -744,7 +887,10 @@ class SubtitlePipeline:
                     options.workspace_directory or app_paths.WORKSPACE_DIR
                 )
                 / "Cache",
+                cancellation_token=self.cancellation_token,
             )
+        except OperationCancelled:
+            raise
         except Exception:
             return None
         if not subtitle_sync.activity_reference_is_informative(activity):
@@ -755,6 +901,7 @@ class SubtitlePipeline:
             str(output_path),
             reference_label=f"audio activity for {label}",
         )
+        self._record_sync(label, result)
         if result.confidence != "low":
             self._validate_duration(video, result.output_path)
         return result
@@ -781,6 +928,7 @@ class SubtitlePipeline:
                 reference_label=label,
                 tolerance_ms=1500,
             )
+            self._record_sync("external source subtitle", result)
             if result.confidence == "low":
                 return None
             return result.output_path
@@ -792,7 +940,10 @@ class SubtitlePipeline:
                     options.workspace_directory or app_paths.WORKSPACE_DIR
                 )
                 / "Cache",
+                cancellation_token=self.cancellation_token,
             )
+        except OperationCancelled:
+            raise
         except Exception:
             self._warn(
                 "The external source subtitle could not be independently "
@@ -811,6 +962,7 @@ class SubtitlePipeline:
             str(output),
             reference_label="video audio activity",
         )
+        self._record_sync("external source subtitle", result)
         return result.output_path if result.confidence != "low" else None
 
     def _normalize_subtitle(
@@ -911,9 +1063,105 @@ class SubtitlePipeline:
         self._warnings.append(message)
         self._emit("warning", message, 0)
 
-    def _emit(self, stage: str, message: str, percent: int) -> None:
+    def _emit(
+        self,
+        stage: str,
+        message: str,
+        percent: int,
+        *,
+        check_cancellation: bool = True,
+    ) -> None:
+        if check_cancellation:
+            self._check_cancelled()
         print(message)
+        if self.diagnostics_recorder:
+            self.diagnostics_recorder.record(
+                "pipeline",
+                stage,
+                message=message,
+                percent=max(0, min(100, percent)),
+            )
         self.progress(stage, message, max(0, min(100, percent)))
+
+    def _check_cancelled(self) -> None:
+        if self.cancellation_token:
+            self.cancellation_token.raise_if_cancelled()
+
+    def _record_external_event(
+        self,
+        provider: str,
+        action: str,
+        details: dict,
+    ) -> None:
+        if provider == "openai" and action == "chunk_completed":
+            usage = details.get("usage")
+            if isinstance(usage, dict):
+                self._translation_input_tokens += _safe_int(
+                    usage.get("input_tokens")
+                )
+                self._translation_output_tokens += _safe_int(
+                    usage.get("output_tokens")
+                )
+        if self.diagnostics_recorder:
+            self.diagnostics_recorder.record(
+                provider,
+                action,
+                **details,
+            )
+
+    def _record_candidate(
+        self,
+        candidate: open_subtitles.SubtitleCandidate,
+        *,
+        decision: str,
+        status: str = "considered",
+    ) -> None:
+        if self.diagnostics_recorder:
+            self.diagnostics_recorder.record(
+                "candidate",
+                "decision",
+                status=status,
+                file_id=candidate.file_id,
+                release_name=candidate.release_name,
+                file_name=candidate.file_name,
+                trusted=candidate.trusted,
+                rating=candidate.rating,
+                decision=decision,
+            )
+
+    def _record_sync(
+        self,
+        label: str,
+        result: subtitle_sync.SyncResult,
+    ) -> None:
+        if self.diagnostics_recorder:
+            self.diagnostics_recorder.record(
+                "timing",
+                "validation",
+                status=(
+                    "accepted"
+                    if result.confidence != "low"
+                    else "rejected"
+                ),
+                label=label,
+                method=result.method,
+                confidence=result.confidence,
+                applied=result.applied,
+                offset_ms=result.offset_ms,
+                scale=result.scale,
+                median_error_ms=result.median_error_ms,
+                p80_error_ms=result.p80_error_ms,
+                match_ratio=result.match_ratio,
+                coverage_ratio=result.coverage_ratio,
+                local_spread_ms=result.local_spread_ms,
+                max_local_jump_ms=result.max_local_jump_ms,
+                discontinuity=result.discontinuity,
+                message=result.message,
+            )
+
+    def _update_diagnostics_summary(self, **values: object) -> None:
+        if self.diagnostics_recorder:
+            self.diagnostics_recorder.update_summary(**values)
 
 
 def _new_job_directory(workspace: Path, video: Path) -> Path:
@@ -930,3 +1178,10 @@ def _new_job_directory(workspace: Path, video: Path) -> Path:
         )
     )
     return directory
+
+
+def _safe_int(value: object) -> int:
+    try:
+        return max(0, int(value or 0))
+    except (TypeError, ValueError):
+        return 0

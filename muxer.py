@@ -8,10 +8,12 @@ import shutil
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
+from uuid import uuid4
 
 import app_paths
 import dependencies
 import languages
+from operation_control import CancellationToken, run_process
 
 
 _MIN_SPACE_RESERVE = 512 * 1024 * 1024
@@ -37,6 +39,7 @@ def mux_tracks(
     *,
     output_directory: str | Path | None = None,
     suffix: str = " [Subtitled]",
+    cancellation_token: CancellationToken | None = None,
 ) -> str:
     """Create a verified MKV beside the source or in a chosen output folder.
 
@@ -62,14 +65,30 @@ def mux_tracks(
         suffix=suffix,
         extension=".mkv",
     )
-    partial_path = output_path.with_name(f".{output_path.stem}.partial.mkv")
+    partial_path = output_path.with_name(
+        f".{output_path.stem}.{uuid4().hex}.partial.mkv"
+    )
 
     destination.mkdir(parents=True, exist_ok=True)
+    if cancellation_token:
+        cancellation_token.raise_if_cancelled()
     _ensure_free_space(source, destination)
     partial_path.unlink(missing_ok=True)
     try:
-        _run_mkvmerge(source, normalized_tracks, partial_path)
+        if cancellation_token is None:
+            _run_mkvmerge(source, normalized_tracks, partial_path)
+        else:
+            _run_mkvmerge(
+                source,
+                normalized_tracks,
+                partial_path,
+                cancellation_token=cancellation_token,
+            )
+        if cancellation_token:
+            cancellation_token.raise_if_cancelled()
         _verify_mux_output(source, partial_path, normalized_tracks)
+        if cancellation_token:
+            cancellation_token.raise_if_cancelled()
         os.replace(partial_path, output_path)
     except Exception:
         partial_path.unlink(missing_ok=True)
@@ -123,7 +142,13 @@ def probe_media(path: str | Path) -> dict:
         "-show_streams",
         str(path),
     ]
-    result = subprocess.run(command, capture_output=True, text=True)
+    result = subprocess.run(  # noqa: S603
+        command,
+        capture_output=True,
+        text=True,
+        timeout=60,
+        check=False,
+    )
     if result.returncode != 0:
         raise RuntimeError(
             f"ffprobe could not inspect '{path}':\n{result.stderr.strip()}"
@@ -146,6 +171,8 @@ def _run_mkvmerge(
     source: Path,
     tracks: list[SubtitleTrack],
     output_path: Path,
+    *,
+    cancellation_token: CancellationToken | None = None,
 ) -> None:
     mkvmerge = dependencies.require_tool("mkvmerge")
     command = [
@@ -171,7 +198,18 @@ def _run_mkvmerge(
             ]
         )
 
-    result = subprocess.run(command, capture_output=True, text=True)
+    if cancellation_token is None:
+        result = subprocess.run(  # noqa: S603
+            command,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    else:
+        result = run_process(
+            command,
+            cancellation_token=cancellation_token,
+        )
     if result.returncode >= 2:
         raise RuntimeError(
             f"mkvmerge failed while processing '{source.name}':\n"
@@ -266,7 +304,7 @@ def _verify_mux_output(
         for stream in output_data.get("streams", [])
         if stream.get("codec_type") == "subtitle"
     ]
-    if len(subtitle_streams) < len(expected_tracks):
+    if len(subtitle_streams) != len(expected_tracks):
         raise RuntimeError(
             "Merge verification failed: expected "
             f"{len(expected_tracks)} subtitle track(s), found "

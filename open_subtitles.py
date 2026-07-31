@@ -15,15 +15,27 @@ import zipfile
 from dataclasses import dataclass
 from io import BytesIO
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 import app_paths
 import languages
+from operation_control import CancellationToken
 
 
 BASE_URL = "https://api.opensubtitles.com/api/v1"
 USER_AGENT = "SubtitleTranslator v0.9"
 VIETNAMESE_LANGUAGE = "vi"
+_MAX_API_ATTEMPTS = 3
+_MAX_RETRY_DELAY_SECONDS = 10.0
+_MAX_JSON_BYTES = 4 * 1024 * 1024
+_MAX_DOWNLOAD_BYTES = 32 * 1024 * 1024
+_MAX_ARCHIVE_ENTRY_BYTES = 16 * 1024 * 1024
+_MAX_ARCHIVE_MEMBERS = 200
+_RETRYABLE_STATUS_CODES = {408, 409, 425, 429, 500, 502, 503, 504}
+_EPISODE_PATTERNS = (
+    re.compile(r"(?i)(?<![a-z0-9])s(\d{1,2})[ ._-]*e(\d{1,3})(?!\d)"),
+    re.compile(r"(?i)(?<![a-z0-9])(\d{1,2})x(\d{1,3})(?!\d)"),
+)
 
 _TITLE_STOPWORDS = {
     "a",
@@ -196,6 +208,8 @@ def search_results(
     *,
     query_override: str | None = None,
     limit: int = 50,
+    cancellation_token: CancellationToken | None = None,
+    event_callback: Callable[[str, dict[str, Any]], None] | None = None,
 ) -> SubtitleSearchResult:
     """
     Search OpenSubtitles and retain rejected candidates for manual review.
@@ -209,6 +223,8 @@ def search_results(
     if not api_key:
         raise OpenSubtitlesError("OpenSubtitles API key is required.")
     language = languages.get_language(language_code)
+    if cancellation_token:
+        cancellation_token.raise_if_cancelled()
 
     query = (query_override or _query_from_filename(video_path)).strip()
     if not query:
@@ -216,6 +232,11 @@ def search_results(
 
     candidates: list[SubtitleCandidate] = []
     matched_by_hash = False
+    request_controls: dict[str, Any] = {}
+    if cancellation_token is not None:
+        request_controls["cancellation_token"] = cancellation_token
+    if event_callback is not None:
+        request_controls["event_callback"] = event_callback
 
     if query_override is None:
         started = time.monotonic()
@@ -238,6 +259,7 @@ def search_results(
                     "languages": language.opensubtitles_code,
                     "moviehash": hash_value,
                 },
+                **request_controls,
             )
             candidates = _parse_candidates(data)
             matched_by_hash = bool(candidates)
@@ -257,6 +279,7 @@ def search_results(
                 "languages": language.opensubtitles_code,
                 "query": query.lower(),
             },
+            **request_controls,
         )
         candidates = _parse_candidates(data)
         print(
@@ -287,12 +310,23 @@ def search_results(
             f"{len(automatic)} of {len(ranked)} filename result(s)."
         )
 
-    return SubtitleSearchResult(
+    result = SubtitleSearchResult(
         query=query,
         candidates=tuple(ranked),
         automatic_matches=tuple(automatic),
         matched_by_hash=matched_by_hash,
     )
+    if event_callback:
+        event_callback(
+            "search_completed",
+            {
+                "query": query,
+                "candidate_count": len(ranked),
+                "automatic_match_count": len(automatic),
+                "matched_by_hash": matched_by_hash,
+            },
+        )
+    return result
 
 
 def search_subtitles(
@@ -300,6 +334,9 @@ def search_subtitles(
     video_path: str,
     language_code: str,
     limit: int = 8,
+    *,
+    cancellation_token: CancellationToken | None = None,
+    event_callback: Callable[[str, dict[str, Any]], None] | None = None,
 ) -> list[SubtitleCandidate]:
     """Return candidates in one language that are safe for automatic use."""
     language = languages.get_language(language_code)
@@ -308,6 +345,8 @@ def search_subtitles(
         video_path,
         language.code,
         limit=max(limit, 8),
+        cancellation_token=cancellation_token,
+        event_callback=event_callback,
     )
     if not results.candidates:
         return []
@@ -330,6 +369,8 @@ def download_subtitle(
     language_code: str | None = None,
     workspace_directory: str | Path | None = None,
     output_directory: str | Path | None = None,
+    cancellation_token: CancellationToken | None = None,
+    event_callback: Callable[[str, dict[str, Any]], None] | None = None,
 ) -> str:
     """
     Download a selected OpenSubtitles candidate into the private workspace.
@@ -339,17 +380,25 @@ def download_subtitle(
     api_key = api_key.strip()
     if not api_key:
         raise OpenSubtitlesError("OpenSubtitles API key is required.")
+    if cancellation_token:
+        cancellation_token.raise_if_cancelled()
 
     started = time.monotonic()
+    request_controls: dict[str, Any] = {}
+    if cancellation_token is not None:
+        request_controls["cancellation_token"] = cancellation_token
+    if event_callback is not None:
+        request_controls["event_callback"] = event_callback
     response = _request_json(
         "POST",
         "/download",
         api_key,
         body={"file_id": candidate.file_id, "sub_format": "srt"},
+        **request_controls,
     )
     print(f"OpenSubtitles download link created in {time.monotonic() - started:.2f}s.")
     link = response.get("link")
-    if not link:
+    if not isinstance(link, str) or not link.strip():
         message = response.get("message") or "OpenSubtitles did not return a download link."
         raise OpenSubtitlesError(message)
 
@@ -365,13 +414,23 @@ def download_subtitle(
     output_dir.mkdir(parents=True, exist_ok=True)
     started = time.monotonic()
     output_path = _download_link(
-        link,
+        link.strip(),
         candidate,
         video_path,
         language,
         output_dir,
+        cancellation_token=cancellation_token,
     )
     print(f"OpenSubtitles subtitle file downloaded in {time.monotonic() - started:.2f}s.")
+    if event_callback:
+        event_callback(
+            "download_completed",
+            {
+                "file_id": candidate.file_id,
+                "release_name": candidate.release_name,
+                "file_name": candidate.file_name,
+            },
+        )
     return output_path
 
 
@@ -447,6 +506,8 @@ def _request_json(
     *,
     query: dict[str, Any] | None = None,
     body: dict[str, Any] | None = None,
+    cancellation_token: CancellationToken | None = None,
+    event_callback: Callable[[str, dict[str, Any]], None] | None = None,
 ) -> dict[str, Any]:
     """Send a JSON request to the OpenSubtitles REST API."""
     url = f"{BASE_URL}{path}"
@@ -463,19 +524,91 @@ def _request_json(
         data = json.dumps(body).encode("utf-8")
         headers["Content-Type"] = "application/json"
 
-    request = urllib.request.Request(url, data=data, headers=headers, method=method)
-    try:
-        with urllib.request.urlopen(request, timeout=30) as response:
-            payload = response.read().decode("utf-8")
-            return json.loads(payload)
-    except urllib.error.HTTPError as exc:
-        body_text = exc.read().decode("utf-8", errors="replace")
-        message = _error_message(body_text) or exc.reason
-        raise OpenSubtitlesError(f"OpenSubtitles API error {exc.code}: {message}") from exc
-    except urllib.error.URLError as exc:
-        raise OpenSubtitlesError(f"Could not reach OpenSubtitles: {exc.reason}") from exc
-    except json.JSONDecodeError as exc:
-        raise OpenSubtitlesError("OpenSubtitles returned invalid JSON.") from exc
+    for attempt in range(1, _MAX_API_ATTEMPTS + 1):
+        if cancellation_token:
+            cancellation_token.raise_if_cancelled()
+        request = urllib.request.Request(  # noqa: S310
+            url,
+            data=data,
+            headers=headers,
+            method=method,
+        )
+        try:
+            # BASE_URL is a fixed OpenSubtitles HTTPS endpoint.
+            with urllib.request.urlopen(  # noqa: S310  # nosec B310
+                request,
+                timeout=30,
+            ) as response:
+                payload = _read_limited(
+                    response,
+                    _MAX_JSON_BYTES,
+                    "OpenSubtitles API response",
+                ).decode("utf-8")
+                decoded = json.loads(payload)
+                if not isinstance(decoded, dict):
+                    raise OpenSubtitlesError(
+                        "OpenSubtitles returned an unexpected JSON response."
+                    )
+                if cancellation_token:
+                    cancellation_token.raise_if_cancelled()
+                return decoded
+        except urllib.error.HTTPError as exc:
+            body_text = exc.read(64 * 1024).decode("utf-8", errors="replace")
+            message = _error_message(body_text) or exc.reason
+            if exc.code in _RETRYABLE_STATUS_CODES and attempt < _MAX_API_ATTEMPTS:
+                retry_after = (
+                    exc.headers.get("Retry-After") if exc.headers else None
+                )
+                delay = _retry_delay(retry_after, attempt)
+                print(
+                    "OpenSubtitles is temporarily unavailable "
+                    f"(HTTP {exc.code}); retrying in {delay:g}s."
+                )
+                if event_callback:
+                    event_callback(
+                        "retry",
+                        {
+                            "attempt": attempt,
+                            "status_code": exc.code,
+                            "delay_seconds": delay,
+                        },
+                    )
+                if cancellation_token:
+                    cancellation_token.wait(delay)
+                else:
+                    time.sleep(delay)
+                continue
+            raise OpenSubtitlesError(
+                f"OpenSubtitles API error {exc.code}: {message}"
+            ) from exc
+        except (urllib.error.URLError, TimeoutError) as exc:
+            if attempt < _MAX_API_ATTEMPTS:
+                delay = _retry_delay(None, attempt)
+                print(
+                    "Could not reach OpenSubtitles; "
+                    f"retrying in {delay:g}s."
+                )
+                if event_callback:
+                    event_callback(
+                        "retry",
+                        {
+                            "attempt": attempt,
+                            "reason": "network error",
+                            "delay_seconds": delay,
+                        },
+                    )
+                if cancellation_token:
+                    cancellation_token.wait(delay)
+                else:
+                    time.sleep(delay)
+                continue
+            raise OpenSubtitlesError(
+                f"Could not reach OpenSubtitles: {getattr(exc, 'reason', exc)}"
+            ) from exc
+        except json.JSONDecodeError as exc:
+            raise OpenSubtitlesError("OpenSubtitles returned invalid JSON.") from exc
+
+    raise OpenSubtitlesError("OpenSubtitles request failed after retries.")
 
 
 def _parse_candidates(payload: dict[str, Any]) -> list[SubtitleCandidate]:
@@ -523,14 +656,23 @@ def _filter_filename_candidates(
     names. A trusted but unrelated ``S01E01`` result is worse than no result,
     so filename search requires strong overlap on meaningful title words.
     """
-    video_tokens = _meaningful_title_tokens(
+    source_text = (
         title_query if title_query is not None else _query_from_filename(video_path)
     )
+    video_tokens = _meaningful_title_tokens(source_text)
     if not video_tokens:
-        return candidates
+        return []
+    source_episode = _episode_identity(f"{source_text} {Path(video_path).stem}")
+    source_year = _release_year(f"{source_text} {Path(video_path).stem}")
 
     filtered = []
     for candidate in candidates:
+        candidate_episode = _candidate_episode_identity(candidate)
+        if source_episode and candidate_episode != source_episode:
+            continue
+        candidate_year = _candidate_release_year(candidate)
+        if source_year and candidate_year and source_year != candidate_year:
+            continue
         candidate_tokens = _meaningful_title_tokens(_candidate_text(candidate))
         overlap = video_tokens & candidate_tokens
         if not overlap:
@@ -553,11 +695,20 @@ def _filename_match_score(
     title_query: str | None = None,
 ) -> float:
     """Return a rough 0..1 text-match score between a result and local video."""
-    video_tokens = _meaningful_title_tokens(
+    source_text = (
         title_query if title_query is not None else _query_from_filename(video_path)
     )
+    video_tokens = _meaningful_title_tokens(source_text)
     candidate_tokens = _meaningful_title_tokens(_candidate_text(candidate))
     if not video_tokens or not candidate_tokens:
+        return 0.0
+    source_episode = _episode_identity(f"{source_text} {Path(video_path).stem}")
+    candidate_episode = _candidate_episode_identity(candidate)
+    if source_episode and candidate_episode != source_episode:
+        return 0.0
+    source_year = _release_year(f"{source_text} {Path(video_path).stem}")
+    candidate_year = _candidate_release_year(candidate)
+    if source_year and candidate_year and source_year != candidate_year:
         return 0.0
     overlap = len(video_tokens & candidate_tokens)
     return overlap / max(1, min(len(video_tokens), len(candidate_tokens)))
@@ -578,16 +729,72 @@ def _candidate_text(candidate: SubtitleCandidate) -> str:
 
 def _meaningful_title_tokens(text: str) -> set[str]:
     """Tokenize a release/title string into words useful for match filtering."""
-    normalized = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode("ascii")
-    normalized = normalized.lower()
-    normalized = re.sub(r"s\d{1,2}e\d{1,3}", " ", normalized)
+    normalized = unicodedata.normalize("NFKC", text).casefold()
+    normalized = re.sub(r"s\d{1,2}[ ._-]*e\d{1,3}", " ", normalized)
+    normalized = re.sub(r"\b\d{1,2}x\d{1,3}\b", " ", normalized)
     normalized = re.sub(r"\b\d{1,4}\b", " ", normalized)
-    tokens = set(re.findall(r"[a-z][a-z0-9]{2,}", normalized))
+    tokens = set(re.findall(r"[^\W_]+", normalized, flags=re.UNICODE))
+    folded = (
+        unicodedata.normalize("NFKD", normalized)
+        .encode("ascii", "ignore")
+        .decode("ascii")
+    )
+    tokens.update(re.findall(r"[a-z][a-z0-9]{2,}", folded))
     return {
         token
         for token in tokens
-        if token not in _TITLE_STOPWORDS and token not in _RELEASE_STOPWORDS
+        if (
+            (len(token) >= 3 or any(ord(character) > 127 for character in token))
+            and token not in _TITLE_STOPWORDS
+            and token not in _RELEASE_STOPWORDS
+        )
     }
+
+
+def _episode_identity(text: str) -> tuple[int, int] | None:
+    """Return a season/episode pair from common release-name conventions."""
+    normalized = unicodedata.normalize("NFKC", text)
+    for pattern in _EPISODE_PATTERNS:
+        match = pattern.search(normalized)
+        if match:
+            return int(match.group(1)), int(match.group(2))
+    return None
+
+
+def _candidate_episode_identity(
+    candidate: SubtitleCandidate,
+) -> tuple[int, int] | None:
+    """Prefer structured OpenSubtitles episode metadata over release text."""
+    attrs = candidate.source.get("attributes", {})
+    feature = attrs.get("feature_details") or {}
+    season = feature.get("season_number", feature.get("season"))
+    episode = feature.get("episode_number", feature.get("episode"))
+    try:
+        if season not in (None, "") and episode not in (None, ""):
+            return int(season), int(episode)
+    except (TypeError, ValueError):
+        pass
+    return _episode_identity(_candidate_text(candidate))
+
+
+def _release_year(text: str) -> int | None:
+    """Return the first plausible screen release year from title text."""
+    for value in re.findall(r"(?<!\d)(?:19|20)\d{2}(?!\d)", text):
+        year = int(value)
+        if 1888 <= year <= 2100:
+            return year
+    return None
+
+
+def _candidate_release_year(candidate: SubtitleCandidate) -> int | None:
+    """Prefer canonical OpenSubtitles year metadata over noisy release names."""
+    try:
+        year = int(candidate.feature_year)
+    except (TypeError, ValueError):
+        year = 0
+    if 1888 <= year <= 2100:
+        return year
+    return _release_year(_candidate_text(candidate))
 
 
 def _download_link(
@@ -596,16 +803,46 @@ def _download_link(
     video_path: str,
     language: languages.LanguageProfile,
     output_directory: Path,
+    *,
+    cancellation_token: CancellationToken | None = None,
 ) -> str:
     """Download and unpack the subtitle file returned by OpenSubtitles."""
-    request = urllib.request.Request(link, headers={"User-Agent": USER_AGENT})
+    parsed = urllib.parse.urlsplit(link)
+    if (
+        parsed.scheme.lower() != "https"
+        or not parsed.hostname
+        or parsed.username is not None
+        or parsed.password is not None
+    ):
+        raise OpenSubtitlesError(
+            "OpenSubtitles returned an unsafe subtitle download URL."
+        )
+    request = urllib.request.Request(  # noqa: S310
+        link,
+        headers={"User-Agent": USER_AGENT},
+    )
+    if cancellation_token:
+        cancellation_token.raise_if_cancelled()
     try:
-        with urllib.request.urlopen(request, timeout=60) as response:
-            data = response.read()
+        # The returned link is restricted to credential-free HTTPS above.
+        with urllib.request.urlopen(  # noqa: S310  # nosec B310
+            request,
+            timeout=60,
+        ) as response:
+            data = _read_limited(
+                response,
+                _MAX_DOWNLOAD_BYTES,
+                "Downloaded subtitle",
+            )
             content_type = response.headers.get("Content-Type", "")
-    except urllib.error.URLError as exc:
-        raise OpenSubtitlesError(f"Could not download subtitle file: {exc.reason}") from exc
+    except (urllib.error.URLError, TimeoutError) as exc:
+        reason = getattr(exc, "reason", exc)
+        raise OpenSubtitlesError(
+            f"Could not download subtitle file: {reason}"
+        ) from exc
 
+    if cancellation_token:
+        cancellation_token.raise_if_cancelled()
     file_name = candidate.file_name or f"{Path(video_path).stem}.srt"
     if zipfile.is_zipfile(BytesIO(data)):
         return _write_zip_subtitle(
@@ -618,9 +855,16 @@ def _download_link(
 
     if data.startswith(b"\x1f\x8b") or "gzip" in content_type.lower():
         try:
-            data = gzip.decompress(data)
-        except OSError:
-            pass
+            with gzip.GzipFile(fileobj=BytesIO(data)) as compressed:
+                data = compressed.read(_MAX_ARCHIVE_ENTRY_BYTES + 1)
+            if len(data) > _MAX_ARCHIVE_ENTRY_BYTES:
+                raise OpenSubtitlesError(
+                    "Downloaded gzip subtitle is too large to process safely."
+                )
+        except OSError as exc:
+            raise OpenSubtitlesError(
+                "Downloaded gzip subtitle could not be unpacked."
+            ) from exc
 
     suffix = Path(file_name).suffix.lower()
     if suffix not in app_paths.SUBTITLE_EXTENSIONS:
@@ -643,20 +887,73 @@ def _write_zip_subtitle(
 ) -> str:
     """Extract the first supported subtitle file from a zip archive."""
     with zipfile.ZipFile(BytesIO(data)) as archive:
-        names = [
-            name for name in archive.namelist()
-            if Path(name).suffix.lower() in app_paths.SUBTITLE_EXTENSIONS
+        members = archive.infolist()
+        if len(members) > _MAX_ARCHIVE_MEMBERS:
+            raise OpenSubtitlesError(
+                "Downloaded subtitle archive contains too many files."
+            )
+        supported = [
+            member
+            for member in members
+            if (
+                not member.is_dir()
+                and Path(member.filename).suffix.lower()
+                in app_paths.SUBTITLE_EXTENSIONS
+            )
         ]
-        if not names:
+        if not supported:
             raise OpenSubtitlesError("Downloaded archive did not contain an SRT/ASS/SSA file.")
-        name = names[0]
-        suffix = Path(name).suffix.lower()
+        member = supported[0]
+        if member.flag_bits & 0x1:
+            raise OpenSubtitlesError(
+                "Downloaded subtitle archive is encrypted."
+            )
+        if member.file_size > _MAX_ARCHIVE_ENTRY_BYTES:
+            raise OpenSubtitlesError(
+                "Downloaded subtitle archive entry is too large to process safely."
+            )
+        suffix = Path(member.filename).suffix.lower()
         path = output_directory / (
             f"{Path(video_path).stem} [OpenSubtitles {language.code} "
             f"{file_id}]{suffix}"
         )
-        _write_text_subtitle(path, archive.read(name))
+        with archive.open(member) as source:
+            subtitle_data = source.read(_MAX_ARCHIVE_ENTRY_BYTES + 1)
+        if len(subtitle_data) > _MAX_ARCHIVE_ENTRY_BYTES:
+            raise OpenSubtitlesError(
+                "Downloaded subtitle archive entry is too large to process safely."
+            )
+        _write_text_subtitle(path, subtitle_data)
         return str(path)
+
+
+def _read_limited(response: Any, limit: int, label: str) -> bytes:
+    """Read a bounded HTTP response before allocating untrusted content."""
+    headers = getattr(response, "headers", {})
+    content_length = headers.get("Content-Length")
+    try:
+        declared_length = int(content_length) if content_length else 0
+    except (TypeError, ValueError):
+        declared_length = 0
+    if declared_length > limit:
+        raise OpenSubtitlesError(f"{label} is too large to process safely.")
+    data = response.read(limit + 1)
+    if len(data) > limit:
+        raise OpenSubtitlesError(f"{label} is too large to process safely.")
+    return data
+
+
+def _retry_delay(retry_after: str | None, attempt: int) -> float:
+    """Return a short bounded Retry-After or exponential delay."""
+    if retry_after:
+        try:
+            return max(
+                0.0,
+                min(float(retry_after), _MAX_RETRY_DELAY_SECONDS),
+            )
+        except ValueError:
+            pass
+    return min(float(2 ** (attempt - 1)), _MAX_RETRY_DELAY_SECONDS)
 
 
 def _write_text_subtitle(path: Path, data: bytes) -> None:

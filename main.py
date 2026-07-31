@@ -10,10 +10,12 @@ from PySide6.QtCore import QTimer
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication
 
+import i18n
+import settings
 from ui import MainWindow, apply_application_style
 
 
-APP_VERSION = "0.9.0-beta.1"
+APP_VERSION = "0.9.0-beta.4"
 
 
 def main() -> None:
@@ -24,6 +26,11 @@ def main() -> None:
     application.setOrganizationName("SubtitleTranslator")
     application.setApplicationVersion(APP_VERSION)
     application.setQuitOnLastWindowClosed(True)
+    preferences = settings.SettingsStore().load()
+    i18n.install_translators(
+        application,
+        preferences.get("interface_language", "system"),
+    )
     icon_path = Path(getattr(sys, "_MEIPASS", Path(__file__).parent)) / "assets" / "app-icon-source.png"
     if icon_path.is_file():
         application.setWindowIcon(QIcon(str(icon_path)))

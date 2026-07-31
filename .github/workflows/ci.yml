@@ -26,15 +26,28 @@ jobs:
           cache: pip
 
       - name: Install dependencies
-        run: python -m pip install -r requirements-dev.txt
+        run: |
+          python -m pip install --upgrade "pip>=26.1.2"
+          python -m pip install -r requirements-dev.txt
 
       - name: Compile source
         run: |
           python -m py_compile \
             app_paths.py audio_activity.py chunker.py dependencies.py \
-            extractor.py languages.py main.py media_launcher.py muxer.py \
-            open_subtitles.py pipeline.py settings.py subtitle_sync.py \
-            translator.py ui.py
+            diagnostics.py extractor.py i18n.py languages.py main.py \
+            media_launcher.py mpv_config.py muxer.py open_subtitles.py \
+            operation_control.py pipeline.py settings.py subtitle_sync.py \
+            translation_cost.py translator.py ui.py tools/build_translations.py \
+            tools/generate_draft_translations.py \
+            tools/generate_localized_guides.py
+
+      - name: Check for Python correctness errors
+        run: python -m ruff check . --select F
+
+      - name: Validate interface catalogs
+        run: |
+          python tools/build_translations.py --check
+          python tools/build_translations.py --compile
 
       - name: Run pipeline regressions
         run: python test_pipeline.py
@@ -47,10 +60,13 @@ jobs:
           QT_QPA_PLATFORM: offscreen
         run: |
           python - <<'PY'
+          import i18n
           from PySide6.QtWidgets import QApplication
-          from ui import MainWindow, apply_application_style
+          from open_subtitles import SubtitleCandidate, SubtitleSearchResult
+          from ui import CandidateDialog, MainWindow, apply_application_style
 
           application = QApplication([])
+          i18n.install_translators(application, "ar")
           apply_application_style(application)
           MainWindow._show_first_run = lambda self: None
           MainWindow._migrate_legacy_credentials = lambda self: None
@@ -59,5 +75,40 @@ jobs:
           application.processEvents()
           assert window.tabs.count() == 3
           assert window.target_combo.count() == 30
+          assert application.isRightToLeft()
           window.close()
+
+          candidate = SubtitleCandidate(
+              file_id=42,
+              release_name="Example.Movie.2026.1080p-GROUP",
+              file_name="example.srt",
+              language="vi",
+              download_count=100,
+              rating=8.5,
+              trusted=True,
+              source={
+                  "attributes": {
+                      "feature_details": {
+                          "title": "Example Movie",
+                          "year": 2026,
+                      }
+                  }
+              },
+          )
+          review = CandidateDialog(
+              None,
+              api_key="unused",
+              video_path="/tmp/example.mkv",
+              target_language="vi",
+              initial_result=SubtitleSearchResult(
+                  query="Example Movie",
+                  candidates=(candidate,),
+                  automatic_matches=(candidate,),
+                  matched_by_hash=False,
+              ),
+          )
+          review.show()
+          application.processEvents()
+          assert review.table.rowCount() == 1
+          review.close()
           PY

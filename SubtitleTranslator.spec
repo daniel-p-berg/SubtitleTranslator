@@ -3,12 +3,45 @@
 import os
 
 target_arch = os.environ.get("TARGET_ARCH") or None
+localizations = [
+    "en",
+    "vi",
+    "ko",
+    "ja",
+    "zh-Hans",
+    "zh-Hant",
+    "es",
+    "pt-BR",
+    "pt-PT",
+    "fr",
+    "de",
+    "it",
+    "ru",
+    "uk",
+    "pl",
+    "nl",
+    "tr",
+    "ar",
+    "fa",
+    "he",
+    "hi",
+    "bn",
+    "ur",
+    "id",
+    "ms",
+    "th",
+    "fil",
+    "ro",
+    "cs",
+    "el",
+]
 
 datas = [
     ("assets/app-icon-source.png", "assets"),
     ("LICENSE", "licenses"),
     ("THIRD_PARTY_NOTICES.md", "licenses"),
     (".build-licenses", "licenses"),
+    ("translations/*.qm", "translations"),
 ]
 binaries = []
 hiddenimports = [
@@ -19,6 +52,7 @@ hiddenimports = [
     "chunker",
     "dependencies",
     "extractor",
+    "i18n",
     "languages",
     "media_launcher",
     "muxer",
@@ -108,10 +142,16 @@ app = BUNDLE(
     bundle_identifier="com.danielpberg.subtitletranslator",
     info_plist={
         "CFBundleDisplayName": "SubtitleTranslator",
+        "CFBundleDevelopmentRegion": "en",
+        "CFBundleLocalizations": localizations,
         "CFBundleShortVersionString": "0.9.0",
-        "CFBundleVersion": "0.9.0.1",
+        "CFBundleVersion": "0.9.0.3",
         "LSMinimumSystemVersion": "13.0",
         "NSHighResolutionCapable": True,
+        "NSAppleEventsUsageDescription": (
+            "SubtitleTranslator opens Terminal only when you approve a "
+            "Homebrew media-tool installation."
+        ),
         "NSHumanReadableCopyright": "Copyright 2026 Daniel Berg",
     },
 )

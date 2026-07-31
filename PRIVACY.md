@@ -35,6 +35,10 @@ Non-secret preferences are stored at:
 ~/Library/Application Support/SubtitleTranslator/settings.json
 ```
 
+This includes the chosen interface language. Locale detection and catalog
+loading are local; the interface language is not reported to the developer or
+sent to an API provider.
+
 Intermediate subtitles, timing caches, and local job summaries default to:
 
 ```text
@@ -89,6 +93,14 @@ and account settings.
 The app's visible details panel contains processing stages and error messages.
 It does not intentionally log API keys, authorization headers, or subtitle
 dialogue. Local job summaries use media filenames rather than full source paths.
+
+Diagnostics are created in memory for each job and are written only when the
+user chooses **Export Diagnostics**. An exported report can contain media
+filenames, OpenSubtitles release labels and file identifiers, timing metrics,
+candidate decisions, retry metadata, model and reasoning choices, API-reported
+token counts, and local tool versions. It excludes API keys, authorization
+headers, subtitle dialogue, and full media paths. Exported reports are written
+with user-only file permissions.
 
 Do not paste API keys into GitHub issues, screenshots, or shared diagnostics.
 

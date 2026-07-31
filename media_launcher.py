@@ -127,9 +127,7 @@ def recent_media_files(
         root = Path(directory).expanduser()
         if not root.is_dir():
             continue
-        for path in root.rglob("*"):
-            if not path.is_file() or path.name.startswith("."):
-                continue
+        for path in app_paths.iter_files_recursive(root):
             if path.suffix.lower() not in PLAYABLE_EXTENSIONS:
                 continue
             try:

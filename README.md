@@ -22,6 +22,8 @@ stored in macOS Keychain.
   automatically.
 - Translates text subtitles with configurable OpenAI models and reasoning.
 - Includes editable source/target-aware prompt profiles for 30 languages.
+- Localizes the complete application interface into the same 30 languages,
+  with automatic macOS locale detection and RTL layouts where appropriate.
 - Detects constant offsets, gradual drift, incompatible cuts, and local timing
   discontinuities across the full runtime.
 - Tries alternate OpenSubtitles candidates when timing cannot be reconciled.
@@ -29,6 +31,12 @@ stored in macOS Keychain.
   locations consistently.
 - Creates verified MKV output without re-encoding video or audio.
 - Launches current or recent media directly in the user's normal mpv setup.
+- Cancels searches, translations, audio analysis, and muxing without leaving a
+  partial MKV behind.
+- Exports user-controlled, redacted diagnostics with timing and candidate
+  decisions but no API keys, subtitle dialogue, or full media paths.
+- Includes Economy, Balanced, and Best translation presets with a local,
+  preflight cost range.
 
 ## Supported Languages
 
@@ -41,6 +49,21 @@ All 30 languages can be used as source or target languages. Unidentified text
 subtitles can still provide timing evidence, but their source language must be
 selected before translation.
 
+## Interface Languages
+
+The interface follows the Mac's preferred language on first launch and falls
+back to English when needed. Interface language is independent of subtitle
+source and target languages. Change it under **Settings > Interface** and
+restart the app to apply it.
+
+Language choices are always shown with native and English names. Arabic,
+Persian, Hebrew, and Urdu use right-to-left layouts; paths, commands, API fields,
+and editable translation prompts remain left-to-right.
+
+All 30 launch catalogs are machine-generated drafts. Corrections are welcome
+through the editable Qt `.ts` files in `translations/`. Compact localized
+installation guides are available in [`docs/i18n`](docs/i18n/).
+
 ## Install
 
 1. Download the DMG matching the Mac from
@@ -48,11 +71,19 @@ selected before translation.
 2. Drag `SubtitleTranslator.app` into Applications.
 3. Because this beta is not notarized, right-click the app, choose **Open**, and
    confirm the first launch.
-4. Install the local media tools:
+4. Complete the readiness checklist for media tools, optional API connections,
+   a media folder, mpv, and a first media file.
+5. If Homebrew is missing, choose **Install Homebrew**, use the official signed
+   macOS installer, and return to choose **Check Again**.
+6. Choose **Install Missing Tools**. SubtitleTranslator shows the exact command,
+   opens it in a visible Terminal window, and detects when installation finishes.
+   macOS may ask once for permission to open Terminal.
 
-   ```bash
-   brew install ffmpeg mkvtoolnix mpv
-   ```
+The equivalent manual command is:
+
+```bash
+brew install ffmpeg mkvtoolnix mpv
+```
 
 The single universal build runs natively on both Apple Silicon and Intel Macs.
 macOS 13 or newer is required.
@@ -65,11 +96,23 @@ macOS 13 or newer is required.
    [OpenAI API key page](https://platform.openai.com/api-keys).
 2. Confirm API billing and model access in the OpenAI account.
 3. Open **Settings > API Connections**, enter the key, and choose
-   **Save Keys to Keychain**.
+   **Save API Keys to Keychain**.
 4. Use **Test** to validate the selected model without submitting subtitle text.
 
-The economical default is `gpt-5.6-luna` with low reasoning. Terra, Sol, other
-reasoning levels, and custom model identifiers are available in Settings.
+The existing default remains `gpt-5.6-luna` with low reasoning. Settings also
+offers three one-click profiles:
+
+| Preset | Model | Reasoning |
+| --- | --- | --- |
+| Economy | `gpt-5.6-luna` | None |
+| Balanced | `gpt-5.6-terra` | Low |
+| Best | `gpt-5.6-sol` | High |
+
+The advanced model and reasoning controls remain editable. Cost ranges use the
+standard token rates published by the
+[OpenAI model guide](https://developers.openai.com/api/docs/models/compare)
+and are estimates rather than spending limits. The bundled rates were last
+reviewed on July 11, 2026.
 
 ### OpenSubtitles
 
@@ -104,17 +147,28 @@ OpenSubtitles.
 
 ## mpv Dual Subtitles
 
-Install mpv through Homebrew:
+Open **Media Tools** in SubtitleTranslator and leave **Include optional mpv
+player** selected before choosing **Install Missing Tools**. The equivalent
+manual command is:
 
 ```bash
 brew install mpv
 ```
 
-Create or edit `~/.config/mpv/mpv.conf`:
+Open **Settings > Video Playback > Dual Subtitle Setup**. The assistant shows
+the exact proposed `~/.config/mpv/mpv.conf`, preserves unrelated settings,
+warns about duplicate keys, creates a timestamped backup, and can restore the
+latest backup.
+
+Its managed block contains:
 
 ```conf
+# BEGIN SubtitleTranslator dual subtitles
 sub-pos=88
 secondary-sub-pos=12
+secondary-sub-visibility=yes
+secondary-sid=auto
+# END SubtitleTranslator dual subtitles
 ```
 
 Useful default controls:
@@ -156,6 +210,12 @@ Translated subtitles inherit the source cue timings. Existing target-language
 subtitles are checked across the runtime for offset, drift, and discontinuities.
 Low-confidence candidates are rejected when alternatives can be tested.
 
+Choose **Export Diagnostics** after a completed, failed, or cancelled job to
+save a private JSON report. It records timing confidence and corrections,
+candidate acceptance/rejection, API retry metadata, translation token usage,
+and local tool versions. It never includes API keys, authorization headers,
+subtitle dialogue, or full media paths.
+
 Image subtitle formats such as PGS and VobSub contain pictures rather than
 translation text. They can help with timing, but this beta does not perform OCR
 or audio transcription.
@@ -178,6 +238,8 @@ In short:
 git clone https://github.com/daniel-p-berg/SubtitleTranslator.git
 cd SubtitleTranslator
 python3.12 -m pip install -r requirements-dev.txt
+python3.12 tools/build_translations.py --check
+python3.12 tools/build_translations.py --compile
 python3.12 test_pipeline.py
 python3.12 -m unittest -v test_product.py
 python3.12 main.py

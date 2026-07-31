@@ -51,3 +51,8 @@ assets/*.iconset/
 *.sup
 *_VI.*
 *_subbed.*
+
+# Qt Linguist source and compiled interface catalogs.
+!translations/
+!translations/*.ts
+!translations/*.qm

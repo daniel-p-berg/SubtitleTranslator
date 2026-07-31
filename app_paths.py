@@ -44,17 +44,15 @@ def ensure_output_dirs(workspace_directory: str | Path | None = None) -> None:
 def workspace_subtitles_dir(workspace_directory: str | Path | None = None) -> Path:
     """Return the subtitle workspace for the active settings."""
     workspace = Path(workspace_directory or WORKSPACE_DIR).expanduser()
-    directory = workspace / "Subtitles"
-    directory.mkdir(parents=True, exist_ok=True)
-    return directory
+    app_settings.ensure_private_directories(workspace)
+    return workspace / "Subtitles"
 
 
 def workspace_cache_dir(workspace_directory: str | Path | None = None) -> Path:
     """Return the cache workspace for the active settings."""
     workspace = Path(workspace_directory or WORKSPACE_DIR).expanduser()
-    directory = workspace / "Cache"
-    directory.mkdir(parents=True, exist_ok=True)
-    return directory
+    app_settings.ensure_private_directories(workspace)
+    return workspace / "Cache"
 
 
 def find_latest_video(media_dir: str | Path | None = None) -> Path | None:
@@ -97,18 +95,27 @@ def iter_files_recursive(
     *,
     ignored_directories: Iterable[str | Path] = (),
 ) -> Iterator[Path]:
-    """Yield visible files under a user-approved directory."""
+    """Yield visible, non-symlink files under a user-approved directory."""
     ignored = {
         Path(item).expanduser().resolve()
         for item in (*APP_MANAGED_DIRS, *ignored_directories)
     }
-    yield from _iter_files_recursive(Path(directory), ignored)
+    root = Path(directory).expanduser()
+    try:
+        root = root.resolve(strict=True)
+    except OSError:
+        return
+    yield from _iter_files_recursive(root, ignored)
 
 
 def find_latest_video_in_media_dir(media_dir: str | Path) -> Path | None:
     """Find the newest likely media file within one user-approved directory."""
     media_dir = Path(media_dir).expanduser()
     if not media_dir.is_dir():
+        return None
+    try:
+        media_dir = media_dir.resolve(strict=True)
+    except OSError:
         return None
 
     candidates: list[tuple[float, int, int, Path]] = []
@@ -118,29 +125,36 @@ def find_latest_video_in_media_dir(media_dir: str | Path) -> Path | None:
         return None
 
     for entry in entries:
-        if entry.name.startswith(".") or _is_app_managed_dir(entry):
+        if (
+            entry.name.startswith(".")
+            or entry.is_symlink()
+            or _is_app_managed_dir(entry)
+        ):
             continue
-        if entry.is_dir():
-            video = _best_video_in_directory(entry)
-            if video:
-                score = max(_added_time(entry), _modified_time(video))
+        try:
+            if entry.is_dir():
+                video = _best_video_in_directory(entry)
+                if video:
+                    score = max(_added_time(entry), _modified_time(video))
+                    candidates.append(
+                        (
+                            score,
+                            0 if _looks_like_sample(video) else 1,
+                            video.stat().st_size,
+                            video,
+                        )
+                    )
+            elif _is_video_file(entry):
                 candidates.append(
                     (
-                        score,
-                        0 if _looks_like_sample(video) else 1,
-                        video.stat().st_size,
-                        video,
+                        _modified_time(entry),
+                        0 if _looks_like_sample(entry) else 1,
+                        entry.stat().st_size,
+                        entry,
                     )
                 )
-        elif _is_video_file(entry):
-            candidates.append(
-                (
-                    _modified_time(entry),
-                    0 if _looks_like_sample(entry) else 1,
-                    entry.stat().st_size,
-                    entry,
-                )
-            )
+        except OSError:
+            continue
 
     if not candidates:
         return None
@@ -191,24 +205,33 @@ def _best_video_in_directory(directory: Path) -> Path | None:
 
 def _iter_files_recursive(directory: Path, ignored: set[Path]) -> Iterator[Path]:
     stack = [Path(directory)]
+    visited: set[Path] = set()
     while stack:
         current = stack.pop()
         try:
-            entries = list(current.iterdir())
+            resolved_current = current.resolve(strict=True)
+        except OSError:
+            continue
+        if resolved_current in visited or not resolved_current.is_dir():
+            continue
+        visited.add(resolved_current)
+        try:
+            entries = list(resolved_current.iterdir())
         except OSError:
             continue
         for entry in entries:
-            if entry.name.startswith("."):
+            if entry.name.startswith(".") or entry.is_symlink():
                 continue
-            if entry.is_dir():
-                try:
-                    if entry.resolve() in ignored:
+            try:
+                if entry.is_dir():
+                    resolved_entry = entry.resolve(strict=True)
+                    if resolved_entry in ignored:
                         continue
-                except OSError:
-                    continue
-                stack.append(entry)
-            elif entry.is_file():
-                yield entry
+                    stack.append(resolved_entry)
+                elif entry.is_file():
+                    yield entry
+            except OSError:
+                continue
 
 
 def _is_video_file(path: Path) -> bool:

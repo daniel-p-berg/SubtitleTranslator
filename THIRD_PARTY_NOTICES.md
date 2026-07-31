@@ -38,6 +38,18 @@ Direct runtime dependencies include:
 The build is produced with PyInstaller under its GPL license and bootloader
 exception.
 
+## Draft Interface Translations
+
+The initial interface-language drafts were generated locally with Meta's
+NLLB-200 distilled 600M translation model, licensed under CC BY-NC 4.0. The
+model and its runtime are maintainer tools and are not bundled with or used by
+SubtitleTranslator at runtime. Product names, commands, paths, placeholders,
+and keyboard shortcuts were preserved separately and catalogs remain editable
+for human correction.
+
+- [NLLB-200 distilled 600M](https://huggingface.co/facebook/nllb-200-distilled-600M)
+- [Creative Commons BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/)
+
 ## External Tools and Services
 
 FFmpeg, FFprobe, MKVToolNix, and mpv are not bundled with SubtitleTranslator.

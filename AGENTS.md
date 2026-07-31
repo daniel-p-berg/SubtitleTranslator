@@ -33,6 +33,8 @@ into MKV without re-encoding media.
 - `pipeline.py`: language-neutral workflow orchestration.
 - `languages.py`: 30 language profiles, identifiers, and editable prompt
   templates.
+- `i18n.py`: interface locale detection, bilingual locale names, Qt catalog
+  loading, and RTL layout direction.
 - `settings.py`: non-secret settings and macOS Keychain migration.
 - `extractor.py`: embedded/sidecar discovery, extraction, and SRT cleaning.
 - `open_subtitles.py`: official OpenSubtitles REST API integration.
@@ -40,15 +42,22 @@ into MKV without re-encoding media.
 - `subtitle_sync.py`: whole-runtime offset, drift, and discontinuity analysis.
 - `muxer.py`: transactional MKV remux and post-write verification.
 - `media_launcher.py`: direct external mpv launch.
+- `mpv_config.py`: atomic managed-block preview, backup, apply, and restore.
 - `dependencies.py`: bundled/PATH/Homebrew media-tool discovery.
+- `operation_control.py`: cancellation tokens and process-group termination.
+- `diagnostics.py`: metadata-only diagnostics and redacted private export.
+- `translation_cost.py`: model presets, current rates, and local estimates.
 
 ## Verification
 
 ```bash
 python3.12 -m py_compile \
-  app_paths.py audio_activity.py chunker.py dependencies.py extractor.py \
-  languages.py main.py media_launcher.py muxer.py open_subtitles.py pipeline.py \
-  settings.py subtitle_sync.py translator.py ui.py
+  app_paths.py audio_activity.py chunker.py dependencies.py diagnostics.py \
+  extractor.py i18n.py languages.py main.py media_launcher.py mpv_config.py \
+  muxer.py open_subtitles.py operation_control.py pipeline.py settings.py \
+  subtitle_sync.py translation_cost.py translator.py ui.py
+python3.12 tools/build_translations.py --check
+python3.12 tools/build_translations.py --compile
 python3.12 test_pipeline.py
 python3.12 -m unittest -v test_product.py
 bash -n build.sh

@@ -6,7 +6,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
 APP_NAME="SubtitleTranslator"
-VERSION="${VERSION:-0.9.0-beta.1}"
+VERSION="${VERSION:-0.9.0-beta.4}"
 PYTHON="${PYTHON:-python3.12}"
 ARCH="$(uname -m)"
 TARGET_ARCH="${TARGET_ARCH:-$ARCH}"
@@ -51,6 +51,7 @@ verify_bundle_architectures() {
 
 blue "Checking Python and build dependencies..."
 "$PYTHON" --version
+"$PYTHON" -m pip install --upgrade "pip>=26.1.2" --break-system-packages
 "$PYTHON" -m pip install -r requirements-dev.txt --break-system-packages
 
 blue "Preparing third-party license notices..."
@@ -74,12 +75,16 @@ download_license \
     > "$LICENSE_DIR/PYTHON-PACKAGES.txt"
 
 blue "Running source and test checks..."
+"$PYTHON" -m ruff check . --select F
+"$PYTHON" tools/build_translations.py --check
+"$PYTHON" tools/build_translations.py --compile
 "$PYTHON" -m py_compile \
     app_paths.py \
     audio_activity.py \
     chunker.py \
     dependencies.py \
     extractor.py \
+    i18n.py \
     languages.py \
     main.py \
     media_launcher.py \
@@ -89,7 +94,10 @@ blue "Running source and test checks..."
     settings.py \
     subtitle_sync.py \
     translator.py \
-    ui.py
+    ui.py \
+    tools/build_translations.py \
+    tools/generate_draft_translations.py \
+    tools/generate_localized_guides.py
 "$PYTHON" test_pipeline.py
 "$PYTHON" -m unittest -v test_product.py
 

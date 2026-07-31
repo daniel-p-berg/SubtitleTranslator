@@ -41,6 +41,13 @@ class SyncResult:
     confidence: str
     offset_ms: int = 0
     scale: float = 1.0
+    median_error_ms: float | None = None
+    p80_error_ms: float | None = None
+    match_ratio: float | None = None
+    coverage_ratio: float | None = None
+    local_spread_ms: float | None = None
+    max_local_jump_ms: float | None = None
+    discontinuity: bool = False
 
 
 @dataclass(frozen=True)
@@ -73,6 +80,17 @@ class _LocalOffsetProfile:
     max_jump_ms: float
     spread_ms: float
     discontinuity: bool
+
+
+@dataclass(frozen=True)
+class _TransformEstimate:
+    """Chosen global transform plus whole-runtime quality evidence."""
+
+    scale: float
+    offset_ms: float
+    stats: _AlignmentStats
+    local_profile: _LocalOffsetProfile | None
+    original_residual_ms: float
 
 
 def sync_to_reference(reference_srt: str, subtitle_srt: str, output_path: str) -> SyncResult:
@@ -151,15 +169,13 @@ def sync_to_reference_cues(
             "low",
         )
 
-    (
-        scale,
-        offset,
-        confidence,
-        residual_ms,
-        has_discontinuity,
-        original_residual_ms,
-    ) = transform
-    if has_discontinuity:
+    scale = transform.scale
+    offset = transform.offset_ms
+    stats = transform.stats
+    local_profile = transform.local_profile
+    confidence = stats.confidence
+    residual_ms = stats.median_error_ms
+    if local_profile and local_profile.discontinuity:
         shutil.copy2(subtitle_srt, output)
         return SyncResult(
             str(output),
@@ -172,6 +188,13 @@ def sync_to_reference_cues(
             "low",
             int(round(offset)),
             scale,
+            stats.median_error_ms,
+            stats.p80_error_ms,
+            stats.match_ratio,
+            stats.coverage_ratio,
+            local_profile.spread_ms,
+            local_profile.max_jump_ms,
+            True,
         )
 
     needs_scale = abs(scale - 1.0) >= 0.001
@@ -187,6 +210,12 @@ def sync_to_reference_cues(
             confidence,
             int(round(offset)),
             scale,
+            stats.median_error_ms,
+            stats.p80_error_ms,
+            stats.match_ratio,
+            stats.coverage_ratio,
+            local_profile.spread_ms if local_profile else None,
+            local_profile.max_jump_ms if local_profile else None,
         )
 
     if confidence == "low":
@@ -199,6 +228,12 @@ def sync_to_reference_cues(
             confidence,
             int(round(offset)),
             scale,
+            stats.median_error_ms,
+            stats.p80_error_ms,
+            stats.match_ratio,
+            stats.coverage_ratio,
+            local_profile.spread_ms if local_profile else None,
+            local_profile.max_jump_ms if local_profile else None,
         )
 
     _write_transformed_srt(subtitle_srt, output, scale, offset)
@@ -212,11 +247,17 @@ def sync_to_reference_cues(
             scale,
             offset,
             residual_ms,
-            original_residual_ms,
+            transform.original_residual_ms,
         ),
         confidence,
         int(round(offset)),
         scale,
+        stats.median_error_ms,
+        stats.p80_error_ms,
+        stats.match_ratio,
+        stats.coverage_ratio,
+        local_profile.spread_ms if local_profile else None,
+        local_profile.max_jump_ms if local_profile else None,
     )
 
 
@@ -287,6 +328,10 @@ def validate_against_activity(
             "copy",
             f"Timing uncertain: subtitle cues do not match the {reference_label}.",
             "low",
+            median_error_ms=stats.median_error_ms,
+            p80_error_ms=stats.p80_error_ms,
+            match_ratio=stats.match_ratio,
+            coverage_ratio=stats.coverage_ratio,
         )
 
     return SyncResult(
@@ -299,6 +344,10 @@ def validate_against_activity(
             f"{stats.coverage_ratio:.0%} timeline coverage)."
         ),
         stats.confidence,
+        median_error_ms=stats.median_error_ms,
+        p80_error_ms=stats.p80_error_ms,
+        match_ratio=stats.match_ratio,
+        coverage_ratio=stats.coverage_ratio,
     )
 
 
@@ -327,7 +376,7 @@ def _estimate_transform(
     reference_cues: list[CueTiming],
     subtitle_cues: list[CueTiming],
     tolerance_ms: int = 1000,
-) -> tuple[float, float, str, float, bool, float] | None:
+) -> _TransformEstimate | None:
     """Estimate ``reference_ms = scale * subtitle_ms + offset``."""
     reference_starts = sorted(cue.start_ms for cue in reference_cues)
     subtitle_starts = sorted(cue.start_ms for cue in subtitle_cues)
@@ -412,12 +461,11 @@ def _estimate_transform(
         if no_shift_stats.confidence != "low"
         else float("inf")
     )
-    return (
+    return _TransformEstimate(
         best_candidate.scale,
         best_candidate.offset_ms,
-        stats.confidence,
-        stats.median_error_ms,
-        bool(local_profile and local_profile.discontinuity),
+        stats,
+        local_profile,
         original_residual_ms,
     )
 
