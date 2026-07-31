@@ -225,6 +225,24 @@ class LanguageRegistryTests(unittest.TestCase):
 
 
 class InterfaceLocalizationTests(unittest.TestCase):
+    def test_candidate_review_actions_explain_the_translation_choice(
+        self,
+    ) -> None:
+        expected = {
+            "Use Selected Subtitle",
+            "Translate Source Instead",
+            (
+                "Skip these OpenSubtitles results and translate the source "
+                "subtitle with OpenAI."
+            ),
+        }
+        sources = set(build_translations.source_messages())
+        self.assertTrue(expected.issubset(sources))
+        for code in build_translations.LANGUAGE_CODES:
+            with self.subTest(code=code):
+                catalog = build_translations.read_catalog(code)
+                self.assertTrue(expected.issubset(catalog))
+
     def test_interface_registry_matches_all_subtitle_languages(self) -> None:
         interface_codes = {
             item.code for item in i18n.interface_languages()

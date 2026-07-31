@@ -163,12 +163,32 @@
       <translation>Downloads</translation>
     </message>
     <message>
-      <source>Use Selected</source>
-      <translation>Gebruik Geselecteerd</translation>
+      <source>Details</source>
+      <translation>Details</translation>
+    </message>
+    <message>
+      <source>Skip these OpenSubtitles results and translate the source subtitle with OpenAI.</source>
+      <translation>Sla deze OpenSubtitles-resultaten over en vertaal de bronondertitel met OpenAI.</translation>
+    </message>
+    <message>
+      <source>OpenAI receives subtitle text only when you translate.</source>
+      <translation>OpenAI ontvangt alleen tekst met ondertiteling wanneer u vertaalt.</translation>
+    </message>
+    <message>
+      <source>Use Selected Subtitle</source>
+      <translation>Geselecteerde ondertitel gebruiken</translation>
+    </message>
+    <message>
+      <source>Translate Source Instead</source>
+      <translation>In plaats daarvan bronondertitel vertalen</translation>
     </message>
     <message>
       <source>Cancel</source>
       <translation>Afzeggen</translation>
+    </message>
+    <message>
+      <source>Add an OpenSubtitles API key in Settings.</source>
+      <translation>Voeg een OpenSubtitles API-sleutel toe in Instellingen.</translation>
     </message>
     <message>
       <source>Searching...</source>
@@ -751,10 +771,6 @@
       <translation>Voorbereid ondertiteling</translation>
     </message>
     <message>
-      <source>Details</source>
-      <translation>Details</translation>
-    </message>
-    <message>
       <source>Export Diagnostics</source>
       <translation>Uitvoerdiagnostiek</translation>
     </message>
@@ -1063,8 +1079,12 @@
       <translation>OpenSubtitles Sleutel vereist</translation>
     </message>
     <message>
-      <source>Add an OpenSubtitles API key in Settings.</source>
-      <translation>Voeg een OpenSubtitles API-sleutel toe in Instellingen.</translation>
+      <source>Estimated translation cost: {range}</source>
+      <translation>Schatte vertalingskosten: {range}</translation>
+    </message>
+    <message>
+      <source>Pricing is unavailable for this custom model.</source>
+      <translation>De prijs is niet beschikbaar voor dit aangepaste model.</translation>
     </message>
     <message>
       <source>JSON files</source>
@@ -1151,16 +1171,8 @@ Open installatie instructies?</translation>
       <translation>Standardprijs: ${input_rate:g} input / ${output_rate:g} output per 1M tokens.</translation>
     </message>
     <message>
-      <source>Pricing is unavailable for this custom model.</source>
-      <translation>De prijs is niet beschikbaar voor dit aangepaste model.</translation>
-    </message>
-    <message>
       <source>No OpenAI translation cost for this method.</source>
       <translation>Geen kosten voor de vertaling van OpenAI voor deze methode.</translation>
-    </message>
-    <message>
-      <source>Estimated translation cost: {range}</source>
-      <translation>Schatte vertalingskosten: {range}</translation>
     </message>
     <message>
       <source>If translation is needed: about {range}</source>
@@ -1221,10 +1233,6 @@ Open installatie instructies?</translation>
     <message>
       <source>Subtitle processing and media files stay on this Mac.</source>
       <translation>Ondertitelverwerking en mediabestanden blijven op deze Mac.</translation>
-    </message>
-    <message>
-      <source>OpenAI receives subtitle text only when you translate.</source>
-      <translation>OpenAI ontvangt alleen tekst met ondertiteling wanneer u vertaalt.</translation>
     </message>
     <message>
       <source>OpenSubtitles receives search metadata only when you search.</source>

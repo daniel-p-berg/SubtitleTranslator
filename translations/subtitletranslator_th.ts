@@ -163,12 +163,32 @@
       <translation>โหลด</translation>
     </message>
     <message>
-      <source>Use Selected</source>
-      <translation>ใช้การเลือก</translation>
+      <source>Details</source>
+      <translation>รายละเอียด</translation>
+    </message>
+    <message>
+      <source>Skip these OpenSubtitles results and translate the source subtitle with OpenAI.</source>
+      <translation>ข้ามผลลัพธ์ OpenSubtitles เหล่านี้และแปลคำบรรยายต้นฉบับด้วย OpenAI</translation>
+    </message>
+    <message>
+      <source>OpenAI receives subtitle text only when you translate.</source>
+      <translation>OpenAI จะรับข้อความรองคําแปลเมื่อคุณแปล</translation>
+    </message>
+    <message>
+      <source>Use Selected Subtitle</source>
+      <translation>ใช้คำบรรยายที่เลือก</translation>
+    </message>
+    <message>
+      <source>Translate Source Instead</source>
+      <translation>แปลคำบรรยายต้นฉบับแทน</translation>
     </message>
     <message>
       <source>Cancel</source>
       <translation>ยกเลิก</translation>
+    </message>
+    <message>
+      <source>Add an OpenSubtitles API key in Settings.</source>
+      <translation>เพิ่มกุญแจ API OpenSubtitles ในการตั้งค่า</translation>
     </message>
     <message>
       <source>Searching...</source>
@@ -751,10 +771,6 @@
       <translation>เตรียมคําบรรยาย</translation>
     </message>
     <message>
-      <source>Details</source>
-      <translation>รายละเอียด</translation>
-    </message>
-    <message>
       <source>Export Diagnostics</source>
       <translation>การตรวจสอบการส่งออก</translation>
     </message>
@@ -1063,8 +1079,12 @@
       <translation>ต้องการกุญแจ OpenSubtitles</translation>
     </message>
     <message>
-      <source>Add an OpenSubtitles API key in Settings.</source>
-      <translation>เพิ่มกุญแจ API OpenSubtitles ในการตั้งค่า</translation>
+      <source>Estimated translation cost: {range}</source>
+      <translation>ค่าค่าแปลประมาณ: {range}</translation>
+    </message>
+    <message>
+      <source>Pricing is unavailable for this custom model.</source>
+      <translation>ราคาไม่สามารถใช้ได้สําหรับตัวอย่างที่เหมาะสมนี้</translation>
     </message>
     <message>
       <source>JSON files</source>
@@ -1151,16 +1171,8 @@ Open setup instructions?</source>
       <translation>ราคาประจํา: ${input_rate:g} input / ${output_rate:g} output ต่อ 1M tokens</translation>
     </message>
     <message>
-      <source>Pricing is unavailable for this custom model.</source>
-      <translation>ราคาไม่สามารถใช้ได้สําหรับตัวอย่างที่เหมาะสมนี้</translation>
-    </message>
-    <message>
       <source>No OpenAI translation cost for this method.</source>
       <translation>ไม่มีค่าแปล OpenAI สําหรับวิธีนี้</translation>
-    </message>
-    <message>
-      <source>Estimated translation cost: {range}</source>
-      <translation>ค่าค่าแปลประมาณ: {range}</translation>
     </message>
     <message>
       <source>If translation is needed: about {range}</source>
@@ -1221,10 +1233,6 @@ Open setup instructions?</source>
     <message>
       <source>Subtitle processing and media files stay on this Mac.</source>
       <translation>การแปรรูปคําบรรยายและไฟล์สื่ออยู่บน Mac นี้</translation>
-    </message>
-    <message>
-      <source>OpenAI receives subtitle text only when you translate.</source>
-      <translation>OpenAI จะรับข้อความรองคําแปลเมื่อคุณแปล</translation>
     </message>
     <message>
       <source>OpenSubtitles receives search metadata only when you search.</source>

@@ -163,12 +163,32 @@
       <translation>Załadowania</translation>
     </message>
     <message>
-      <source>Use Selected</source>
-      <translation>Używanie Wybrane</translation>
+      <source>Details</source>
+      <translation>Szczegóły</translation>
+    </message>
+    <message>
+      <source>Skip these OpenSubtitles results and translate the source subtitle with OpenAI.</source>
+      <translation>Pomiń te wyniki OpenSubtitles i przetłumacz napisy źródłowe za pomocą OpenAI.</translation>
+    </message>
+    <message>
+      <source>OpenAI receives subtitle text only when you translate.</source>
+      <translation>OpenAI otrzymuje teksty podtytułowe tylko podczas tłumaczenia.</translation>
+    </message>
+    <message>
+      <source>Use Selected Subtitle</source>
+      <translation>Użyj wybranych napisów</translation>
+    </message>
+    <message>
+      <source>Translate Source Instead</source>
+      <translation>Zamiast tego przetłumacz napisy źródłowe</translation>
     </message>
     <message>
       <source>Cancel</source>
       <translation>Odwołanie</translation>
+    </message>
+    <message>
+      <source>Add an OpenSubtitles API key in Settings.</source>
+      <translation>Dodaj klucz API OpenSubtitles do ustawień.</translation>
     </message>
     <message>
       <source>Searching...</source>
@@ -751,10 +771,6 @@
       <translation>Przygotuj subteksty</translation>
     </message>
     <message>
-      <source>Details</source>
-      <translation>Szczegóły</translation>
-    </message>
-    <message>
       <source>Export Diagnostics</source>
       <translation>Diagnostyka eksportu</translation>
     </message>
@@ -1063,8 +1079,12 @@
       <translation>OpenSubtitles Klucz wymagany</translation>
     </message>
     <message>
-      <source>Add an OpenSubtitles API key in Settings.</source>
-      <translation>Dodaj klucz API OpenSubtitles do ustawień.</translation>
+      <source>Estimated translation cost: {range}</source>
+      <translation>Szacunkowe koszty tłumaczeń: {range}</translation>
+    </message>
+    <message>
+      <source>Pricing is unavailable for this custom model.</source>
+      <translation>Nie ma cen na ten model na zamówienie.</translation>
     </message>
     <message>
       <source>JSON files</source>
@@ -1151,16 +1171,8 @@ Otwórz instrukcje konfiguracji?</translation>
       <translation>Ceny standardowe: ${input_rate:g} wejście / ${output_rate:g} wyjście na 1M tokeny.</translation>
     </message>
     <message>
-      <source>Pricing is unavailable for this custom model.</source>
-      <translation>Nie ma cen na ten model na zamówienie.</translation>
-    </message>
-    <message>
       <source>No OpenAI translation cost for this method.</source>
       <translation>Nie ma kosztów tłumaczeń OpenAI dla tej metody.</translation>
-    </message>
-    <message>
-      <source>Estimated translation cost: {range}</source>
-      <translation>Szacunkowe koszty tłumaczeń: {range}</translation>
     </message>
     <message>
       <source>If translation is needed: about {range}</source>
@@ -1221,10 +1233,6 @@ Otwórz instrukcje konfiguracji?</translation>
     <message>
       <source>Subtitle processing and media files stay on this Mac.</source>
       <translation>Przetwarzanie nagłówków i pliki multimedialne pozostają na tym Mac.</translation>
-    </message>
-    <message>
-      <source>OpenAI receives subtitle text only when you translate.</source>
-      <translation>OpenAI otrzymuje teksty podtytułowe tylko podczas tłumaczenia.</translation>
     </message>
     <message>
       <source>OpenSubtitles receives search metadata only when you search.</source>

@@ -163,12 +163,32 @@
       <translation>ダウンロード</translation>
     </message>
     <message>
-      <source>Use Selected</source>
-      <translation>使用 選択</translation>
+      <source>Details</source>
+      <translation>詳細</translation>
+    </message>
+    <message>
+      <source>Skip these OpenSubtitles results and translate the source subtitle with OpenAI.</source>
+      <translation>これらのOpenSubtitlesの結果をスキップし、OpenAIで元の字幕を翻訳します。</translation>
+    </message>
+    <message>
+      <source>OpenAI receives subtitle text only when you translate.</source>
+      <translation>OpenAIは,翻訳時にのみ字幕テキストを受け取ります.</translation>
+    </message>
+    <message>
+      <source>Use Selected Subtitle</source>
+      <translation>選択した字幕を使用</translation>
+    </message>
+    <message>
+      <source>Translate Source Instead</source>
+      <translation>代わりに元の字幕を翻訳</translation>
     </message>
     <message>
       <source>Cancel</source>
       <translation>キャンセル</translation>
+    </message>
+    <message>
+      <source>Add an OpenSubtitles API key in Settings.</source>
+      <translation>OpenSubtitles API キーを設定に追加する.</translation>
     </message>
     <message>
       <source>Searching...</source>
@@ -751,10 +771,6 @@
       <translation>字幕を準備する</translation>
     </message>
     <message>
-      <source>Details</source>
-      <translation>詳細</translation>
-    </message>
-    <message>
       <source>Export Diagnostics</source>
       <translation>輸出診断</translation>
     </message>
@@ -1063,8 +1079,12 @@
       <translation>OpenSubtitles キーが必要</translation>
     </message>
     <message>
-      <source>Add an OpenSubtitles API key in Settings.</source>
-      <translation>OpenSubtitles API キーを設定に追加する.</translation>
+      <source>Estimated translation cost: {range}</source>
+      <translation>推定翻訳費用: {range}</translation>
+    </message>
+    <message>
+      <source>Pricing is unavailable for this custom model.</source>
+      <translation>このカスタムモデルには価格が付いていない.</translation>
     </message>
     <message>
       <source>JSON files</source>
@@ -1151,16 +1171,8 @@ Open setup instructions?</source>
       <translation>標準価格: 1Mトークンあたり ${input_rate:g}入力 / ${output_rate:g}出力.</translation>
     </message>
     <message>
-      <source>Pricing is unavailable for this custom model.</source>
-      <translation>このカスタムモデルには価格が付いていない.</translation>
-    </message>
-    <message>
       <source>No OpenAI translation cost for this method.</source>
       <translation>この方法には OpenAI翻訳費用はありません.</translation>
-    </message>
-    <message>
-      <source>Estimated translation cost: {range}</source>
-      <translation>推定翻訳費用: {range}</translation>
     </message>
     <message>
       <source>If translation is needed: about {range}</source>
@@ -1221,10 +1233,6 @@ Open setup instructions?</source>
     <message>
       <source>Subtitle processing and media files stay on this Mac.</source>
       <translation>サブタイトルの処理とメディアファイルは このMacに留まります</translation>
-    </message>
-    <message>
-      <source>OpenAI receives subtitle text only when you translate.</source>
-      <translation>OpenAIは,翻訳時にのみ字幕テキストを受け取ります.</translation>
     </message>
     <message>
       <source>OpenSubtitles receives search metadata only when you search.</source>

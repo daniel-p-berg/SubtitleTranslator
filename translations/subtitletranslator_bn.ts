@@ -163,12 +163,32 @@
       <translation>ডাউনলোড</translation>
     </message>
     <message>
-      <source>Use Selected</source>
-      <translation>ব্যবহার নির্বাচিত</translation>
+      <source>Details</source>
+      <translation>বিস্তারিত</translation>
+    </message>
+    <message>
+      <source>Skip these OpenSubtitles results and translate the source subtitle with OpenAI.</source>
+      <translation>এই OpenSubtitles ফলাফলগুলি এড়িয়ে OpenAI দিয়ে উৎস সাবটাইটেল অনুবাদ করুন।</translation>
+    </message>
+    <message>
+      <source>OpenAI receives subtitle text only when you translate.</source>
+      <translation>OpenAI শুধুমাত্র আপনার অনুবাদ করার সময় সাবটাইটেল পাঠ্য গ্রহণ করে।</translation>
+    </message>
+    <message>
+      <source>Use Selected Subtitle</source>
+      <translation>নির্বাচিত সাবটাইটেল ব্যবহার করুন</translation>
+    </message>
+    <message>
+      <source>Translate Source Instead</source>
+      <translation>পরিবর্তে উৎস সাবটাইটেল অনুবাদ করুন</translation>
     </message>
     <message>
       <source>Cancel</source>
       <translation>বাতিল করা</translation>
+    </message>
+    <message>
+      <source>Add an OpenSubtitles API key in Settings.</source>
+      <translation>সেটিংসে একটি OpenSubtitles API কী যোগ করুন।</translation>
     </message>
     <message>
       <source>Searching...</source>
@@ -751,10 +771,6 @@
       <translation>সাবটাইটেল প্রস্তুত করুন</translation>
     </message>
     <message>
-      <source>Details</source>
-      <translation>বিস্তারিত</translation>
-    </message>
-    <message>
       <source>Export Diagnostics</source>
       <translation>রপ্তানি সংক্রান্ত রোগ নির্ণয়</translation>
     </message>
@@ -1063,8 +1079,12 @@
       <translation>OpenSubtitles কী প্রয়োজন</translation>
     </message>
     <message>
-      <source>Add an OpenSubtitles API key in Settings.</source>
-      <translation>সেটিংসে একটি OpenSubtitles API কী যোগ করুন।</translation>
+      <source>Estimated translation cost: {range}</source>
+      <translation>অনুবাদ খরচ: {range}</translation>
+    </message>
+    <message>
+      <source>Pricing is unavailable for this custom model.</source>
+      <translation>এই কাস্টম মডেলের জন্য কোন মূল্য নির্ধারণ করা সম্ভব নয়।</translation>
     </message>
     <message>
       <source>JSON files</source>
@@ -1151,16 +1171,8 @@ Open setup instructions?</source>
       <translation>স্ট্যান্ডার্ড মূল্যঃ ${input_rate:g} ইনপুট / ${output_rate:g} আউটপুট প্রতি 1M টোকেন.</translation>
     </message>
     <message>
-      <source>Pricing is unavailable for this custom model.</source>
-      <translation>এই কাস্টম মডেলের জন্য কোন মূল্য নির্ধারণ করা সম্ভব নয়।</translation>
-    </message>
-    <message>
       <source>No OpenAI translation cost for this method.</source>
       <translation>এই পদ্ধতির জন্য OpenAI অনুবাদ খরচ নেই।</translation>
-    </message>
-    <message>
-      <source>Estimated translation cost: {range}</source>
-      <translation>অনুবাদ খরচ: {range}</translation>
     </message>
     <message>
       <source>If translation is needed: about {range}</source>
@@ -1221,10 +1233,6 @@ Open setup instructions?</source>
     <message>
       <source>Subtitle processing and media files stay on this Mac.</source>
       <translation>সাবটাইটেল প্রসেসিং এবং মিডিয়া ফাইল এই ম্যাকের উপর থাকবে।</translation>
-    </message>
-    <message>
-      <source>OpenAI receives subtitle text only when you translate.</source>
-      <translation>OpenAI শুধুমাত্র আপনার অনুবাদ করার সময় সাবটাইটেল পাঠ্য গ্রহণ করে।</translation>
     </message>
     <message>
       <source>OpenSubtitles receives search metadata only when you search.</source>

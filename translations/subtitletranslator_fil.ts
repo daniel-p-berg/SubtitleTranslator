@@ -163,12 +163,32 @@
       <translation>Mga pag-download</translation>
     </message>
     <message>
-      <source>Use Selected</source>
-      <translation>Gamitin Pinili</translation>
+      <source>Details</source>
+      <translation>Mga detalye</translation>
+    </message>
+    <message>
+      <source>Skip these OpenSubtitles results and translate the source subtitle with OpenAI.</source>
+      <translation>Laktawan ang mga resultang ito ng OpenSubtitles at isalin ang pinagmulang subtitle gamit ang OpenAI.</translation>
+    </message>
+    <message>
+      <source>OpenAI receives subtitle text only when you translate.</source>
+      <translation>Ang OpenAI ay nakatanggap lamang ng subtitle text kapag isinalin mo ito.</translation>
+    </message>
+    <message>
+      <source>Use Selected Subtitle</source>
+      <translation>Gamitin ang napiling subtitle</translation>
+    </message>
+    <message>
+      <source>Translate Source Instead</source>
+      <translation>Isalin na lang ang pinagmulang subtitle</translation>
     </message>
     <message>
       <source>Cancel</source>
       <translation>Kanselahin</translation>
+    </message>
+    <message>
+      <source>Add an OpenSubtitles API key in Settings.</source>
+      <translation>Magdagdag ng isang OpenSubtitles API key sa mga setting.</translation>
     </message>
     <message>
       <source>Searching...</source>
@@ -751,10 +771,6 @@
       <translation>Maghanda ng mga Subtitle</translation>
     </message>
     <message>
-      <source>Details</source>
-      <translation>Mga detalye</translation>
-    </message>
-    <message>
       <source>Export Diagnostics</source>
       <translation>Pag-aaral sa Export</translation>
     </message>
@@ -1063,8 +1079,12 @@
       <translation>Kinakailangan ang OpenSubtitles Key</translation>
     </message>
     <message>
-      <source>Add an OpenSubtitles API key in Settings.</source>
-      <translation>Magdagdag ng isang OpenSubtitles API key sa mga setting.</translation>
+      <source>Estimated translation cost: {range}</source>
+      <translation>Kinikita ang gastos sa pag-uulat: {range}</translation>
+    </message>
+    <message>
+      <source>Pricing is unavailable for this custom model.</source>
+      <translation>Hindi magagamit ang presyo para sa mga kustom na modelo na ito.</translation>
     </message>
     <message>
       <source>JSON files</source>
@@ -1151,16 +1171,8 @@ Buksan ang mga tagubilin sa pag-setup?</translation>
       <translation>Standard na presyo: ${input_rate:g} input / ${output_rate:g} output bawat 1M tokens.</translation>
     </message>
     <message>
-      <source>Pricing is unavailable for this custom model.</source>
-      <translation>Hindi magagamit ang presyo para sa mga kustom na modelo na ito.</translation>
-    </message>
-    <message>
       <source>No OpenAI translation cost for this method.</source>
       <translation>Walang gastos sa pag-translate ng OpenAI para sa pamamaraan na ito.</translation>
-    </message>
-    <message>
-      <source>Estimated translation cost: {range}</source>
-      <translation>Kinikita ang gastos sa pag-uulat: {range}</translation>
     </message>
     <message>
       <source>If translation is needed: about {range}</source>
@@ -1221,10 +1233,6 @@ Buksan ang mga tagubilin sa pag-setup?</translation>
     <message>
       <source>Subtitle processing and media files stay on this Mac.</source>
       <translation>Ang subtitle processing at media files ay mananatili sa Mac na ito.</translation>
-    </message>
-    <message>
-      <source>OpenAI receives subtitle text only when you translate.</source>
-      <translation>Ang OpenAI ay nakatanggap lamang ng subtitle text kapag isinalin mo ito.</translation>
     </message>
     <message>
       <source>OpenSubtitles receives search metadata only when you search.</source>

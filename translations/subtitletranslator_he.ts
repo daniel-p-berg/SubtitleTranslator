@@ -163,12 +163,32 @@
       <translation>הורדות</translation>
     </message>
     <message>
-      <source>Use Selected</source>
-      <translation>שימוש נבחר</translation>
+      <source>Details</source>
+      <translation>פרטים</translation>
+    </message>
+    <message>
+      <source>Skip these OpenSubtitles results and translate the source subtitle with OpenAI.</source>
+      <translation>דלג על תוצאות OpenSubtitles האלה ותרגם את כתובית המקור באמצעות OpenAI.</translation>
+    </message>
+    <message>
+      <source>OpenAI receives subtitle text only when you translate.</source>
+      <translation>OpenAI מקבלת טקסט תחתונים רק כאשר אתה מתרגם.</translation>
+    </message>
+    <message>
+      <source>Use Selected Subtitle</source>
+      <translation>שימוש בכתובית שנבחרה</translation>
+    </message>
+    <message>
+      <source>Translate Source Instead</source>
+      <translation>תרגום כתובית המקור במקום זאת</translation>
     </message>
     <message>
       <source>Cancel</source>
       <translation>ביטול</translation>
+    </message>
+    <message>
+      <source>Add an OpenSubtitles API key in Settings.</source>
+      <translation>הוסף מפתח API OpenSubtitles בהגדרות.</translation>
     </message>
     <message>
       <source>Searching...</source>
@@ -751,10 +771,6 @@
       <translation>להכין כותרות</translation>
     </message>
     <message>
-      <source>Details</source>
-      <translation>פרטים</translation>
-    </message>
-    <message>
       <source>Export Diagnostics</source>
       <translation>אבחון של היצוא</translation>
     </message>
@@ -1063,8 +1079,12 @@
       <translation>נדרש מפתח OpenSubtitles</translation>
     </message>
     <message>
-      <source>Add an OpenSubtitles API key in Settings.</source>
-      <translation>הוסף מפתח API OpenSubtitles בהגדרות.</translation>
+      <source>Estimated translation cost: {range}</source>
+      <translation>עלות ההרגום הנערכה: {range}</translation>
+    </message>
+    <message>
+      <source>Pricing is unavailable for this custom model.</source>
+      <translation>מחירים אינם זמינים עבור דגם מותאם לפי דפוס.</translation>
     </message>
     <message>
       <source>JSON files</source>
@@ -1151,16 +1171,8 @@ Open setup instructions?</source>
       <translation>מחיר סטנדרטי: ${input_rate:g} הכניס / ${output_rate:g} יצירתי על 1M טוקנים.</translation>
     </message>
     <message>
-      <source>Pricing is unavailable for this custom model.</source>
-      <translation>מחירים אינם זמינים עבור דגם מותאם לפי דפוס.</translation>
-    </message>
-    <message>
       <source>No OpenAI translation cost for this method.</source>
       <translation>אין עלות תרגום OpenAI עבור שיטה זו.</translation>
-    </message>
-    <message>
-      <source>Estimated translation cost: {range}</source>
-      <translation>עלות ההרגום הנערכה: {range}</translation>
     </message>
     <message>
       <source>If translation is needed: about {range}</source>
@@ -1221,10 +1233,6 @@ Open setup instructions?</source>
     <message>
       <source>Subtitle processing and media files stay on this Mac.</source>
       <translation>עיבוד הכותרות וקבצים מדיה נשארים במק הזה.</translation>
-    </message>
-    <message>
-      <source>OpenAI receives subtitle text only when you translate.</source>
-      <translation>OpenAI מקבלת טקסט תחתונים רק כאשר אתה מתרגם.</translation>
     </message>
     <message>
       <source>OpenSubtitles receives search metadata only when you search.</source>

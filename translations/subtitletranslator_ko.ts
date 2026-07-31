@@ -163,12 +163,32 @@
       <translation>다운로드</translation>
     </message>
     <message>
-      <source>Use Selected</source>
-      <translation>사용 선택</translation>
+      <source>Details</source>
+      <translation>세부 사항</translation>
+    </message>
+    <message>
+      <source>Skip these OpenSubtitles results and translate the source subtitle with OpenAI.</source>
+      <translation>이 OpenSubtitles 결과를 건너뛰고 OpenAI로 원본 자막을 번역합니다.</translation>
+    </message>
+    <message>
+      <source>OpenAI receives subtitle text only when you translate.</source>
+      <translation>OpenAI는 당신이 번역할 때만 자막 텍스트를 수신합니다.</translation>
+    </message>
+    <message>
+      <source>Use Selected Subtitle</source>
+      <translation>선택한 자막 사용</translation>
+    </message>
+    <message>
+      <source>Translate Source Instead</source>
+      <translation>대신 원본 자막 번역</translation>
     </message>
     <message>
       <source>Cancel</source>
       <translation>취소</translation>
+    </message>
+    <message>
+      <source>Add an OpenSubtitles API key in Settings.</source>
+      <translation>설정에 OpenSubtitles API 키를 추가합니다.</translation>
     </message>
     <message>
       <source>Searching...</source>
@@ -751,10 +771,6 @@
       <translation>자막을 준비하라</translation>
     </message>
     <message>
-      <source>Details</source>
-      <translation>세부 사항</translation>
-    </message>
-    <message>
       <source>Export Diagnostics</source>
       <translation>수출 진단</translation>
     </message>
@@ -1063,8 +1079,12 @@
       <translation>OpenSubtitles 키가 필요</translation>
     </message>
     <message>
-      <source>Add an OpenSubtitles API key in Settings.</source>
-      <translation>설정에 OpenSubtitles API 키를 추가합니다.</translation>
+      <source>Estimated translation cost: {range}</source>
+      <translation>번역 비용: {range}</translation>
+    </message>
+    <message>
+      <source>Pricing is unavailable for this custom model.</source>
+      <translation>이 사용자 지정 모델에 대한 가격은 사용할 수 없습니다.</translation>
     </message>
     <message>
       <source>JSON files</source>
@@ -1151,16 +1171,8 @@ Open setup instructions?</source>
       <translation>표준 가격: ${input_rate:g} 입력 / ${output_rate:g} 출력 1M 토큰당.</translation>
     </message>
     <message>
-      <source>Pricing is unavailable for this custom model.</source>
-      <translation>이 사용자 지정 모델에 대한 가격은 사용할 수 없습니다.</translation>
-    </message>
-    <message>
       <source>No OpenAI translation cost for this method.</source>
       <translation>이 방법에는 OpenAI 번역 비용도 없습니다.</translation>
-    </message>
-    <message>
-      <source>Estimated translation cost: {range}</source>
-      <translation>번역 비용: {range}</translation>
     </message>
     <message>
       <source>If translation is needed: about {range}</source>
@@ -1221,10 +1233,6 @@ Open setup instructions?</source>
     <message>
       <source>Subtitle processing and media files stay on this Mac.</source>
       <translation>자막 처리 및 미디어 파일은 이 맥에 남아 있습니다.</translation>
-    </message>
-    <message>
-      <source>OpenAI receives subtitle text only when you translate.</source>
-      <translation>OpenAI는 당신이 번역할 때만 자막 텍스트를 수신합니다.</translation>
     </message>
     <message>
       <source>OpenSubtitles receives search metadata only when you search.</source>

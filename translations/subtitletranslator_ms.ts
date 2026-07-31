@@ -163,12 +163,32 @@
       <translation>Muat turun</translation>
     </message>
     <message>
-      <source>Use Selected</source>
-      <translation>Penggunaan Terpilih</translation>
+      <source>Details</source>
+      <translation>Perincian</translation>
+    </message>
+    <message>
+      <source>Skip these OpenSubtitles results and translate the source subtitle with OpenAI.</source>
+      <translation>Langkau hasil OpenSubtitles ini dan terjemah sari kata sumber dengan OpenAI.</translation>
+    </message>
+    <message>
+      <source>OpenAI receives subtitle text only when you translate.</source>
+      <translation>OpenAI menerima teks subtitle hanya apabila anda menerjemahkan.</translation>
+    </message>
+    <message>
+      <source>Use Selected Subtitle</source>
+      <translation>Gunakan sari kata yang dipilih</translation>
+    </message>
+    <message>
+      <source>Translate Source Instead</source>
+      <translation>Terjemah sari kata sumber sebaliknya</translation>
     </message>
     <message>
       <source>Cancel</source>
       <translation>Batalkan</translation>
+    </message>
+    <message>
+      <source>Add an OpenSubtitles API key in Settings.</source>
+      <translation>Tambahkan kunci API OpenSubtitles dalam Tetapan.</translation>
     </message>
     <message>
       <source>Searching...</source>
@@ -751,10 +771,6 @@
       <translation>Persiapkan Subtitles</translation>
     </message>
     <message>
-      <source>Details</source>
-      <translation>Perincian</translation>
-    </message>
-    <message>
       <source>Export Diagnostics</source>
       <translation>Diagnosis Ekspor</translation>
     </message>
@@ -1063,8 +1079,12 @@
       <translation>Kunci OpenSubtitles diperlukan</translation>
     </message>
     <message>
-      <source>Add an OpenSubtitles API key in Settings.</source>
-      <translation>Tambahkan kunci API OpenSubtitles dalam Tetapan.</translation>
+      <source>Estimated translation cost: {range}</source>
+      <translation>Kos terjemahan yang dianggarkan: {range}</translation>
+    </message>
+    <message>
+      <source>Pricing is unavailable for this custom model.</source>
+      <translation>Harga tidak tersedia untuk model khusus ini.</translation>
     </message>
     <message>
       <source>JSON files</source>
@@ -1151,16 +1171,8 @@ Buka arahan pemasangan?</translation>
       <translation>Harga standard: ${input_rate:g} input / ${output_rate:g} output per 1M token.</translation>
     </message>
     <message>
-      <source>Pricing is unavailable for this custom model.</source>
-      <translation>Harga tidak tersedia untuk model khusus ini.</translation>
-    </message>
-    <message>
       <source>No OpenAI translation cost for this method.</source>
       <translation>Tiada kos terjemahan OpenAI untuk kaedah ini.</translation>
-    </message>
-    <message>
-      <source>Estimated translation cost: {range}</source>
-      <translation>Kos terjemahan yang dianggarkan: {range}</translation>
     </message>
     <message>
       <source>If translation is needed: about {range}</source>
@@ -1221,10 +1233,6 @@ Buka arahan pemasangan?</translation>
     <message>
       <source>Subtitle processing and media files stay on this Mac.</source>
       <translation>Pemprosesan subtitle dan fail media kekal di Mac ini.</translation>
-    </message>
-    <message>
-      <source>OpenAI receives subtitle text only when you translate.</source>
-      <translation>OpenAI menerima teks subtitle hanya apabila anda menerjemahkan.</translation>
     </message>
     <message>
       <source>OpenSubtitles receives search metadata only when you search.</source>

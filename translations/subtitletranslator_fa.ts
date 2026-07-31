@@ -163,12 +163,32 @@
       <translation>دانلود</translation>
     </message>
     <message>
-      <source>Use Selected</source>
-      <translation>استفاده انتخاب شده</translation>
+      <source>Details</source>
+      <translation>جزئیات</translation>
+    </message>
+    <message>
+      <source>Skip these OpenSubtitles results and translate the source subtitle with OpenAI.</source>
+      <translation>این نتایج OpenSubtitles را نادیده بگیرید و زیرنویس مبدأ را با OpenAI ترجمه کنید.</translation>
+    </message>
+    <message>
+      <source>OpenAI receives subtitle text only when you translate.</source>
+      <translation>OpenAI متن زیرنویس را تنها زمانی دریافت می کند که شما ترجمه کنید.</translation>
+    </message>
+    <message>
+      <source>Use Selected Subtitle</source>
+      <translation>استفاده از زیرنویس انتخاب‌شده</translation>
+    </message>
+    <message>
+      <source>Translate Source Instead</source>
+      <translation>ترجمه زیرنویس مبدأ به‌جای آن</translation>
     </message>
     <message>
       <source>Cancel</source>
       <translation>لغو کردن</translation>
+    </message>
+    <message>
+      <source>Add an OpenSubtitles API key in Settings.</source>
+      <translation>کلید API OpenSubtitles را در تنظیمات اضافه کنید.</translation>
     </message>
     <message>
       <source>Searching...</source>
@@ -751,10 +771,6 @@
       <translation>زیرنویس آماده کن</translation>
     </message>
     <message>
-      <source>Details</source>
-      <translation>جزئیات</translation>
-    </message>
-    <message>
       <source>Export Diagnostics</source>
       <translation>تشخیص صادرات</translation>
     </message>
@@ -1063,8 +1079,12 @@
       <translation>کلید OpenSubtitles مورد نیاز است</translation>
     </message>
     <message>
-      <source>Add an OpenSubtitles API key in Settings.</source>
-      <translation>کلید API OpenSubtitles را در تنظیمات اضافه کنید.</translation>
+      <source>Estimated translation cost: {range}</source>
+      <translation>هزینه های پیش بینی شده ترجمه: {range}</translation>
+    </message>
+    <message>
+      <source>Pricing is unavailable for this custom model.</source>
+      <translation>قیمت گذاری برای این مدل سفارشی در دسترس نیست.</translation>
     </message>
     <message>
       <source>JSON files</source>
@@ -1151,16 +1171,8 @@ Open setup instructions?</source>
       <translation>قیمت استاندارد: ${input_rate:g} input / ${output_rate:g} output در هر 1M توکن.</translation>
     </message>
     <message>
-      <source>Pricing is unavailable for this custom model.</source>
-      <translation>قیمت گذاری برای این مدل سفارشی در دسترس نیست.</translation>
-    </message>
-    <message>
       <source>No OpenAI translation cost for this method.</source>
       <translation>هیچ هزینه ترجمه OpenAI برای این روش وجود ندارد.</translation>
-    </message>
-    <message>
-      <source>Estimated translation cost: {range}</source>
-      <translation>هزینه های پیش بینی شده ترجمه: {range}</translation>
     </message>
     <message>
       <source>If translation is needed: about {range}</source>
@@ -1221,10 +1233,6 @@ Open setup instructions?</source>
     <message>
       <source>Subtitle processing and media files stay on this Mac.</source>
       <translation>پردازش زیرنویس و فایل های رسانه ای روی این مک باقی می مانند.</translation>
-    </message>
-    <message>
-      <source>OpenAI receives subtitle text only when you translate.</source>
-      <translation>OpenAI متن زیرنویس را تنها زمانی دریافت می کند که شما ترجمه کنید.</translation>
     </message>
     <message>
       <source>OpenSubtitles receives search metadata only when you search.</source>

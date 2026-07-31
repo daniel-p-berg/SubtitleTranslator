@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.9.0-beta.11
+
+- Clarified the automatic-review choices as **Use Selected Subtitle** and
+  **Translate Source Instead**.
+- Added direct copy explaining that the OpenAI action skips the displayed
+  OpenSubtitles results before showing the estimated translation cost.
+
 ## 0.9.0-beta.10
 
 - Stopped Automatic mode from falling through to a paid OpenAI translation

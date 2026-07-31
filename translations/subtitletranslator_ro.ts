@@ -163,12 +163,32 @@
       <translation>Descărcări</translation>
     </message>
     <message>
-      <source>Use Selected</source>
-      <translation>Utilizarea Selecţionat</translation>
+      <source>Details</source>
+      <translation>Detalii</translation>
+    </message>
+    <message>
+      <source>Skip these OpenSubtitles results and translate the source subtitle with OpenAI.</source>
+      <translation>Omite aceste rezultate OpenSubtitles și traduce subtitrarea sursă cu OpenAI.</translation>
+    </message>
+    <message>
+      <source>OpenAI receives subtitle text only when you translate.</source>
+      <translation>OpenAI primește textul subtitrat numai atunci când traduceți.</translation>
+    </message>
+    <message>
+      <source>Use Selected Subtitle</source>
+      <translation>Folosește subtitrarea selectată</translation>
+    </message>
+    <message>
+      <source>Translate Source Instead</source>
+      <translation>Tradu în schimb subtitrarea sursă</translation>
     </message>
     <message>
       <source>Cancel</source>
       <translation>Anularea</translation>
+    </message>
+    <message>
+      <source>Add an OpenSubtitles API key in Settings.</source>
+      <translation>Adăugați o cheie API OpenSubtitles în Setări.</translation>
     </message>
     <message>
       <source>Searching...</source>
@@ -751,10 +771,6 @@
       <translation>Pregătiţi subtitrările</translation>
     </message>
     <message>
-      <source>Details</source>
-      <translation>Detalii</translation>
-    </message>
-    <message>
       <source>Export Diagnostics</source>
       <translation>Diagnostici ale exporturilor</translation>
     </message>
@@ -1063,8 +1079,12 @@
       <translation>Cheia OpenSubtitles necesară</translation>
     </message>
     <message>
-      <source>Add an OpenSubtitles API key in Settings.</source>
-      <translation>Adăugați o cheie API OpenSubtitles în Setări.</translation>
+      <source>Estimated translation cost: {range}</source>
+      <translation>Costul estimat al traducerii: {range}</translation>
+    </message>
+    <message>
+      <source>Pricing is unavailable for this custom model.</source>
+      <translation>Prețurile nu sunt disponibile pentru acest model personalizat.</translation>
     </message>
     <message>
       <source>JSON files</source>
@@ -1151,16 +1171,8 @@ Deschide instrucţiunile de setare?</translation>
       <translation>Prețul standard: ${input_rate:g} intrare / ${output_rate:g} output pe 1M de jetoane.</translation>
     </message>
     <message>
-      <source>Pricing is unavailable for this custom model.</source>
-      <translation>Prețurile nu sunt disponibile pentru acest model personalizat.</translation>
-    </message>
-    <message>
       <source>No OpenAI translation cost for this method.</source>
       <translation>Nu există costuri de traducere OpenAI pentru această metodă.</translation>
-    </message>
-    <message>
-      <source>Estimated translation cost: {range}</source>
-      <translation>Costul estimat al traducerii: {range}</translation>
     </message>
     <message>
       <source>If translation is needed: about {range}</source>
@@ -1221,10 +1233,6 @@ Deschide instrucţiunile de setare?</translation>
     <message>
       <source>Subtitle processing and media files stay on this Mac.</source>
       <translation>Procesarea subtitelor și fișierele media rămân pe acest Mac.</translation>
-    </message>
-    <message>
-      <source>OpenAI receives subtitle text only when you translate.</source>
-      <translation>OpenAI primește textul subtitrat numai atunci când traduceți.</translation>
     </message>
     <message>
       <source>OpenSubtitles receives search metadata only when you search.</source>

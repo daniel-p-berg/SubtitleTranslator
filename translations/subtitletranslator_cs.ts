@@ -163,12 +163,32 @@
       <translation>Stáhnutí</translation>
     </message>
     <message>
-      <source>Use Selected</source>
-      <translation>Použití Vybrané</translation>
+      <source>Details</source>
+      <translation>Podrobnosti</translation>
+    </message>
+    <message>
+      <source>Skip these OpenSubtitles results and translate the source subtitle with OpenAI.</source>
+      <translation>Přeskočte tyto výsledky OpenSubtitles a přeložte zdrojové titulky pomocí OpenAI.</translation>
+    </message>
+    <message>
+      <source>OpenAI receives subtitle text only when you translate.</source>
+      <translation>OpenAI přijímá text s titulky pouze při překladu.</translation>
+    </message>
+    <message>
+      <source>Use Selected Subtitle</source>
+      <translation>Použít vybrané titulky</translation>
+    </message>
+    <message>
+      <source>Translate Source Instead</source>
+      <translation>Místo toho přeložit zdrojové titulky</translation>
     </message>
     <message>
       <source>Cancel</source>
       <translation>Zrušit</translation>
+    </message>
+    <message>
+      <source>Add an OpenSubtitles API key in Settings.</source>
+      <translation>Přidejte klíč API OpenSubtitles do nastavení.</translation>
     </message>
     <message>
       <source>Searching...</source>
@@ -751,10 +771,6 @@
       <translation>Připravte titulky</translation>
     </message>
     <message>
-      <source>Details</source>
-      <translation>Podrobnosti</translation>
-    </message>
-    <message>
       <source>Export Diagnostics</source>
       <translation>Diagnostika vývozu</translation>
     </message>
@@ -1063,8 +1079,12 @@
       <translation>OpenSubtitles klíč požadovaný</translation>
     </message>
     <message>
-      <source>Add an OpenSubtitles API key in Settings.</source>
-      <translation>Přidejte klíč API OpenSubtitles do nastavení.</translation>
+      <source>Estimated translation cost: {range}</source>
+      <translation>Odhadované náklady na překlad: {range}</translation>
+    </message>
+    <message>
+      <source>Pricing is unavailable for this custom model.</source>
+      <translation>Ceny pro tento model nejsou k dispozici.</translation>
     </message>
     <message>
       <source>JSON files</source>
@@ -1151,16 +1171,8 @@ Otevřete nastavení?</translation>
       <translation>Standardní cena: ${input_rate:g} vstup / ${output_rate:g} výstup na 1M tokeny.</translation>
     </message>
     <message>
-      <source>Pricing is unavailable for this custom model.</source>
-      <translation>Ceny pro tento model nejsou k dispozici.</translation>
-    </message>
-    <message>
       <source>No OpenAI translation cost for this method.</source>
       <translation>Žádné náklady na překlad OpenAI pro tuto metodu.</translation>
-    </message>
-    <message>
-      <source>Estimated translation cost: {range}</source>
-      <translation>Odhadované náklady na překlad: {range}</translation>
     </message>
     <message>
       <source>If translation is needed: about {range}</source>
@@ -1221,10 +1233,6 @@ Otevřete nastavení?</translation>
     <message>
       <source>Subtitle processing and media files stay on this Mac.</source>
       <translation>Zpracování titulků a mediální soubory zůstávají na tomto Macu.</translation>
-    </message>
-    <message>
-      <source>OpenAI receives subtitle text only when you translate.</source>
-      <translation>OpenAI přijímá text s titulky pouze při překladu.</translation>
     </message>
     <message>
       <source>OpenSubtitles receives search metadata only when you search.</source>

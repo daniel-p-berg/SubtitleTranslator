@@ -589,7 +589,12 @@ class CandidateDialog(QDialog):
 
         if allow_translation:
             translation_notice = QLabel(
-                translation_summary
+                tr(
+                    "Skip these OpenSubtitles results and translate the source "
+                    "subtitle with OpenAI."
+                )
+                + "\n"
+                + translation_summary
                 + "\n"
                 + tr("OpenAI receives subtitle text only when you translate.")
             )
@@ -599,11 +604,11 @@ class CandidateDialog(QDialog):
 
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Cancel)
         self.use_button = buttons.addButton(
-            tr("Use Selected"),
+            tr("Use Selected Subtitle"),
             QDialogButtonBox.ButtonRole.AcceptRole,
         )
         self.translate_button = buttons.addButton(
-            tr("Translate"),
+            tr("Translate Source Instead"),
             QDialogButtonBox.ButtonRole.ActionRole,
         )
         self.translate_button.setVisible(allow_translation)

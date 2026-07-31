@@ -163,12 +163,32 @@
       <translation>ڈاؤن لوڈ</translation>
     </message>
     <message>
-      <source>Use Selected</source>
-      <translation>استعمال منتخب</translation>
+      <source>Details</source>
+      <translation>تفصیلات</translation>
+    </message>
+    <message>
+      <source>Skip these OpenSubtitles results and translate the source subtitle with OpenAI.</source>
+      <translation>OpenSubtitles کے ان نتائج کو چھوڑیں اور OpenAI کے ذریعے ماخذ سب ٹائٹل کا ترجمہ کریں۔</translation>
+    </message>
+    <message>
+      <source>OpenAI receives subtitle text only when you translate.</source>
+      <translation>OpenAI کو صرف ترجمہ کرتے وقت ذیلی عنوان متن موصول ہوتا ہے۔</translation>
+    </message>
+    <message>
+      <source>Use Selected Subtitle</source>
+      <translation>منتخب سب ٹائٹل استعمال کریں</translation>
+    </message>
+    <message>
+      <source>Translate Source Instead</source>
+      <translation>اس کے بجائے ماخذ سب ٹائٹل کا ترجمہ کریں</translation>
     </message>
     <message>
       <source>Cancel</source>
       <translation>منسوخ کرنا</translation>
+    </message>
+    <message>
+      <source>Add an OpenSubtitles API key in Settings.</source>
+      <translation>ترتیبات میں OpenSubtitles API کلید شامل کریں۔</translation>
     </message>
     <message>
       <source>Searching...</source>
@@ -751,10 +771,6 @@
       <translation>مضامین تیار کریں</translation>
     </message>
     <message>
-      <source>Details</source>
-      <translation>تفصیلات</translation>
-    </message>
-    <message>
       <source>Export Diagnostics</source>
       <translation>برآمدات کی تشخیص</translation>
     </message>
@@ -1063,8 +1079,12 @@
       <translation>OpenSubtitles کلید کی ضرورت ہے</translation>
     </message>
     <message>
-      <source>Add an OpenSubtitles API key in Settings.</source>
-      <translation>ترتیبات میں OpenSubtitles API کلید شامل کریں۔</translation>
+      <source>Estimated translation cost: {range}</source>
+      <translation>تخمینہ شدہ ترجمہ لاگت: {range}</translation>
+    </message>
+    <message>
+      <source>Pricing is unavailable for this custom model.</source>
+      <translation>اس کسٹم ماڈل کے لئے قیمت دستیاب نہیں ہے.</translation>
     </message>
     <message>
       <source>JSON files</source>
@@ -1151,16 +1171,8 @@ Open setup instructions?</source>
       <translation>سٹینڈرڈ قیمت: ${input_rate:g} ان پٹ / ${output_rate:g} آؤٹ پٹ فی 1M ٹوکن.</translation>
     </message>
     <message>
-      <source>Pricing is unavailable for this custom model.</source>
-      <translation>اس کسٹم ماڈل کے لئے قیمت دستیاب نہیں ہے.</translation>
-    </message>
-    <message>
       <source>No OpenAI translation cost for this method.</source>
       <translation>اس طریقہ کار کے لیے OpenAI ترجمہ کی کوئی لاگت نہیں ہے۔</translation>
-    </message>
-    <message>
-      <source>Estimated translation cost: {range}</source>
-      <translation>تخمینہ شدہ ترجمہ لاگت: {range}</translation>
     </message>
     <message>
       <source>If translation is needed: about {range}</source>
@@ -1221,10 +1233,6 @@ Open setup instructions?</source>
     <message>
       <source>Subtitle processing and media files stay on this Mac.</source>
       <translation>ذیلی عنوان کی پروسیسنگ اور میڈیا فائلیں اس میک پر رہیں.</translation>
-    </message>
-    <message>
-      <source>OpenAI receives subtitle text only when you translate.</source>
-      <translation>OpenAI کو صرف ترجمہ کرتے وقت ذیلی عنوان متن موصول ہوتا ہے۔</translation>
     </message>
     <message>
       <source>OpenSubtitles receives search metadata only when you search.</source>

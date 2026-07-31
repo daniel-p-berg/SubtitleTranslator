@@ -163,12 +163,32 @@
       <translation>Tải xuống</translation>
     </message>
     <message>
-      <source>Use Selected</source>
-      <translation>Sử dụng Chọn</translation>
+      <source>Details</source>
+      <translation>Chi tiết</translation>
+    </message>
+    <message>
+      <source>Skip these OpenSubtitles results and translate the source subtitle with OpenAI.</source>
+      <translation>Bỏ qua các kết quả OpenSubtitles này và dịch phụ đề nguồn bằng OpenAI.</translation>
+    </message>
+    <message>
+      <source>OpenAI receives subtitle text only when you translate.</source>
+      <translation>OpenAI chỉ nhận văn bản phụ đề khi bạn dịch.</translation>
+    </message>
+    <message>
+      <source>Use Selected Subtitle</source>
+      <translation>Sử dụng phụ đề đã chọn</translation>
+    </message>
+    <message>
+      <source>Translate Source Instead</source>
+      <translation>Thay vào đó, dịch phụ đề nguồn</translation>
     </message>
     <message>
       <source>Cancel</source>
       <translation>Hủy bỏ</translation>
+    </message>
+    <message>
+      <source>Add an OpenSubtitles API key in Settings.</source>
+      <translation>Thêm một khóa API OpenSubtitles vào Settings.</translation>
     </message>
     <message>
       <source>Searching...</source>
@@ -751,10 +771,6 @@
       <translation>Chuẩn bị phụ đề</translation>
     </message>
     <message>
-      <source>Details</source>
-      <translation>Chi tiết</translation>
-    </message>
-    <message>
       <source>Export Diagnostics</source>
       <translation>Chẩn đoán xuất khẩu</translation>
     </message>
@@ -1063,8 +1079,12 @@
       <translation>Chìa khóa OpenSubtitles cần thiết</translation>
     </message>
     <message>
-      <source>Add an OpenSubtitles API key in Settings.</source>
-      <translation>Thêm một khóa API OpenSubtitles vào Settings.</translation>
+      <source>Estimated translation cost: {range}</source>
+      <translation>Chi phí dịch dự đoán: {range}</translation>
+    </message>
+    <message>
+      <source>Pricing is unavailable for this custom model.</source>
+      <translation>Giá cả không có sẵn cho mô hình tùy chỉnh này.</translation>
     </message>
     <message>
       <source>JSON files</source>
@@ -1151,16 +1171,8 @@ mở hướng dẫn thiết lập?</translation>
       <translation>Giá chuẩn: ${input_rate:g} input / ${output_rate:g} output cho mỗi 1M token.</translation>
     </message>
     <message>
-      <source>Pricing is unavailable for this custom model.</source>
-      <translation>Giá cả không có sẵn cho mô hình tùy chỉnh này.</translation>
-    </message>
-    <message>
       <source>No OpenAI translation cost for this method.</source>
       <translation>Không có chi phí dịch của OpenAI cho phương pháp này.</translation>
-    </message>
-    <message>
-      <source>Estimated translation cost: {range}</source>
-      <translation>Chi phí dịch dự đoán: {range}</translation>
     </message>
     <message>
       <source>If translation is needed: about {range}</source>
@@ -1221,10 +1233,6 @@ mở hướng dẫn thiết lập?</translation>
     <message>
       <source>Subtitle processing and media files stay on this Mac.</source>
       <translation>Việc xử lý phụ đề và các tập tin truyền thông vẫn ở trên Mac này.</translation>
-    </message>
-    <message>
-      <source>OpenAI receives subtitle text only when you translate.</source>
-      <translation>OpenAI chỉ nhận văn bản phụ đề khi bạn dịch.</translation>
     </message>
     <message>
       <source>OpenSubtitles receives search metadata only when you search.</source>

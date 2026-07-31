@@ -163,12 +163,32 @@
       <translation>التنزيل</translation>
     </message>
     <message>
-      <source>Use Selected</source>
-      <translation>الاستخدام المحدد</translation>
+      <source>Details</source>
+      <translation>التفاصيل</translation>
+    </message>
+    <message>
+      <source>Skip these OpenSubtitles results and translate the source subtitle with OpenAI.</source>
+      <translation>تخطَّ نتائج OpenSubtitles هذه وترجم الترجمة الأصلية باستخدام OpenAI.</translation>
+    </message>
+    <message>
+      <source>OpenAI receives subtitle text only when you translate.</source>
+      <translation>تتلقى OpenAI نصًا تحت الترجمة فقط عند الترجمة.</translation>
+    </message>
+    <message>
+      <source>Use Selected Subtitle</source>
+      <translation>استخدام الترجمة المحددة</translation>
+    </message>
+    <message>
+      <source>Translate Source Instead</source>
+      <translation>ترجمة الترجمة الأصلية بدلاً من ذلك</translation>
     </message>
     <message>
       <source>Cancel</source>
       <translation>إلغاء</translation>
+    </message>
+    <message>
+      <source>Add an OpenSubtitles API key in Settings.</source>
+      <translation>إضافة مفتاح API OpenSubtitles في الإعدادات.</translation>
     </message>
     <message>
       <source>Searching...</source>
@@ -751,10 +771,6 @@
       <translation>إعداد الترجمة</translation>
     </message>
     <message>
-      <source>Details</source>
-      <translation>التفاصيل</translation>
-    </message>
-    <message>
       <source>Export Diagnostics</source>
       <translation>تشخيصات الصادرات</translation>
     </message>
@@ -1063,8 +1079,12 @@
       <translation>مطلوب مفتاح OpenSubtitles</translation>
     </message>
     <message>
-      <source>Add an OpenSubtitles API key in Settings.</source>
-      <translation>إضافة مفتاح API OpenSubtitles في الإعدادات.</translation>
+      <source>Estimated translation cost: {range}</source>
+      <translation>تكلفة الترجمة المتقدمة: {range}</translation>
+    </message>
+    <message>
+      <source>Pricing is unavailable for this custom model.</source>
+      <translation>لا توجد أسعار لهذا النموذج المخصص.</translation>
     </message>
     <message>
       <source>JSON files</source>
@@ -1151,16 +1171,8 @@ Open setup instructions?</source>
       <translation>سعر قياسي: ${input_rate:g} إدخال / ${output_rate:g} إنتاج لكل 1M رموز.</translation>
     </message>
     <message>
-      <source>Pricing is unavailable for this custom model.</source>
-      <translation>لا توجد أسعار لهذا النموذج المخصص.</translation>
-    </message>
-    <message>
       <source>No OpenAI translation cost for this method.</source>
       <translation>لا تكلفة ترجمة OpenAI لهذا الطريقة.</translation>
-    </message>
-    <message>
-      <source>Estimated translation cost: {range}</source>
-      <translation>تكلفة الترجمة المتقدمة: {range}</translation>
     </message>
     <message>
       <source>If translation is needed: about {range}</source>
@@ -1221,10 +1233,6 @@ Open setup instructions?</source>
     <message>
       <source>Subtitle processing and media files stay on this Mac.</source>
       <translation>معالجة الترجمة وملفات الوسائط تبقى على هذا ماك</translation>
-    </message>
-    <message>
-      <source>OpenAI receives subtitle text only when you translate.</source>
-      <translation>تتلقى OpenAI نصًا تحت الترجمة فقط عند الترجمة.</translation>
     </message>
     <message>
       <source>OpenSubtitles receives search metadata only when you search.</source>

@@ -163,12 +163,32 @@
       <translation>Загрузки</translation>
     </message>
     <message>
-      <source>Use Selected</source>
-      <translation>Использование Выбранное</translation>
+      <source>Details</source>
+      <translation>Подробности</translation>
+    </message>
+    <message>
+      <source>Skip these OpenSubtitles results and translate the source subtitle with OpenAI.</source>
+      <translation>Пропустить эти результаты OpenSubtitles и перевести исходные субтитры с помощью OpenAI.</translation>
+    </message>
+    <message>
+      <source>OpenAI receives subtitle text only when you translate.</source>
+      <translation>OpenAI получает текст с субтитрами только при переводе.</translation>
+    </message>
+    <message>
+      <source>Use Selected Subtitle</source>
+      <translation>Использовать выбранные субтитры</translation>
+    </message>
+    <message>
+      <source>Translate Source Instead</source>
+      <translation>Вместо этого перевести исходные субтитры</translation>
     </message>
     <message>
       <source>Cancel</source>
       <translation>Отменить</translation>
+    </message>
+    <message>
+      <source>Add an OpenSubtitles API key in Settings.</source>
+      <translation>Добавьте ключ API OpenSubtitles в настройках.</translation>
     </message>
     <message>
       <source>Searching...</source>
@@ -751,10 +771,6 @@
       <translation>Подготовить субтитры</translation>
     </message>
     <message>
-      <source>Details</source>
-      <translation>Подробности</translation>
-    </message>
-    <message>
       <source>Export Diagnostics</source>
       <translation>Диагностика экспорта</translation>
     </message>
@@ -1063,8 +1079,12 @@
       <translation>Необходимый ключ OpenSubtitles</translation>
     </message>
     <message>
-      <source>Add an OpenSubtitles API key in Settings.</source>
-      <translation>Добавьте ключ API OpenSubtitles в настройках.</translation>
+      <source>Estimated translation cost: {range}</source>
+      <translation>Оценка стоимости перевода: {range}</translation>
+    </message>
+    <message>
+      <source>Pricing is unavailable for this custom model.</source>
+      <translation>Цены на эту модель не доступны.</translation>
     </message>
     <message>
       <source>JSON files</source>
@@ -1151,16 +1171,8 @@ Open setup instructions?</source>
       <translation>Стандартная цена: ${input_rate:g} вход / ${output_rate:g} выход на 1M токенов.</translation>
     </message>
     <message>
-      <source>Pricing is unavailable for this custom model.</source>
-      <translation>Цены на эту модель не доступны.</translation>
-    </message>
-    <message>
       <source>No OpenAI translation cost for this method.</source>
       <translation>Нет затрат на перевод OpenAI для этого метода.</translation>
-    </message>
-    <message>
-      <source>Estimated translation cost: {range}</source>
-      <translation>Оценка стоимости перевода: {range}</translation>
     </message>
     <message>
       <source>If translation is needed: about {range}</source>
@@ -1221,10 +1233,6 @@ Open setup instructions?</source>
     <message>
       <source>Subtitle processing and media files stay on this Mac.</source>
       <translation>Обработка субтитров и медиафайлы остаются на Mac.</translation>
-    </message>
-    <message>
-      <source>OpenAI receives subtitle text only when you translate.</source>
-      <translation>OpenAI получает текст с субтитрами только при переводе.</translation>
     </message>
     <message>
       <source>OpenSubtitles receives search metadata only when you search.</source>

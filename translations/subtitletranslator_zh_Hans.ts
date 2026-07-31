@@ -163,12 +163,32 @@
       <translation>下载</translation>
     </message>
     <message>
-      <source>Use Selected</source>
-      <translation>使用 选择</translation>
+      <source>Details</source>
+      <translation>详细信息</translation>
+    </message>
+    <message>
+      <source>Skip these OpenSubtitles results and translate the source subtitle with OpenAI.</source>
+      <translation>跳过这些 OpenSubtitles 结果，使用 OpenAI 翻译源字幕。</translation>
+    </message>
+    <message>
+      <source>OpenAI receives subtitle text only when you translate.</source>
+      <translation>当您翻译时,OpenAI只收到字幕文本.</translation>
+    </message>
+    <message>
+      <source>Use Selected Subtitle</source>
+      <translation>使用所选字幕</translation>
+    </message>
+    <message>
+      <source>Translate Source Instead</source>
+      <translation>改为翻译源字幕</translation>
     </message>
     <message>
       <source>Cancel</source>
       <translation>取消</translation>
+    </message>
+    <message>
+      <source>Add an OpenSubtitles API key in Settings.</source>
+      <translation>在设置中添加OpenSubtitles API键.</translation>
     </message>
     <message>
       <source>Searching...</source>
@@ -751,10 +771,6 @@
       <translation>准备字幕</translation>
     </message>
     <message>
-      <source>Details</source>
-      <translation>详细信息</translation>
-    </message>
-    <message>
       <source>Export Diagnostics</source>
       <translation>进口诊断</translation>
     </message>
@@ -1063,8 +1079,12 @@
       <translation>要求OpenSubtitles钥匙</translation>
     </message>
     <message>
-      <source>Add an OpenSubtitles API key in Settings.</source>
-      <translation>在设置中添加OpenSubtitles API键.</translation>
+      <source>Estimated translation cost: {range}</source>
+      <translation>估计翻译成本:{range}</translation>
+    </message>
+    <message>
+      <source>Pricing is unavailable for this custom model.</source>
+      <translation>对于本型号的定制价格是不可用的.</translation>
     </message>
     <message>
       <source>JSON files</source>
@@ -1151,16 +1171,8 @@ Open setup instructions?</source>
       <translation>标准价格:每100万代币的输入/输出.</translation>
     </message>
     <message>
-      <source>Pricing is unavailable for this custom model.</source>
-      <translation>对于本型号的定制价格是不可用的.</translation>
-    </message>
-    <message>
       <source>No OpenAI translation cost for this method.</source>
       <translation>对于此方法,没有OpenAI翻译费用.</translation>
-    </message>
-    <message>
-      <source>Estimated translation cost: {range}</source>
-      <translation>估计翻译成本:{range}</translation>
     </message>
     <message>
       <source>If translation is needed: about {range}</source>
@@ -1221,10 +1233,6 @@ Open setup instructions?</source>
     <message>
       <source>Subtitle processing and media files stay on this Mac.</source>
       <translation>字幕处理和媒体文件留在这个Mac上.</translation>
-    </message>
-    <message>
-      <source>OpenAI receives subtitle text only when you translate.</source>
-      <translation>当您翻译时,OpenAI只收到字幕文本.</translation>
     </message>
     <message>
       <source>OpenSubtitles receives search metadata only when you search.</source>

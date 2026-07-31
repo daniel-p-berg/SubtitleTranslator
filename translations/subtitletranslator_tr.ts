@@ -163,12 +163,32 @@
       <translation>İndirmeler</translation>
     </message>
     <message>
-      <source>Use Selected</source>
-      <translation>Kullanım Seçili</translation>
+      <source>Details</source>
+      <translation>Detaylar</translation>
+    </message>
+    <message>
+      <source>Skip these OpenSubtitles results and translate the source subtitle with OpenAI.</source>
+      <translation>Bu OpenSubtitles sonuçlarını atlayın ve kaynak altyazıyı OpenAI ile çevirin.</translation>
+    </message>
+    <message>
+      <source>OpenAI receives subtitle text only when you translate.</source>
+      <translation>OpenAI sadece çevirdiğinizde alt başlık metni alır.</translation>
+    </message>
+    <message>
+      <source>Use Selected Subtitle</source>
+      <translation>Seçili altyazıyı kullan</translation>
+    </message>
+    <message>
+      <source>Translate Source Instead</source>
+      <translation>Bunun yerine kaynak altyazıyı çevir</translation>
     </message>
     <message>
       <source>Cancel</source>
       <translation>İptal</translation>
+    </message>
+    <message>
+      <source>Add an OpenSubtitles API key in Settings.</source>
+      <translation>Ayarlara OpenSubtitles API anahtarı ekleyin.</translation>
     </message>
     <message>
       <source>Searching...</source>
@@ -751,10 +771,6 @@
       <translation>Altyazılar hazırla</translation>
     </message>
     <message>
-      <source>Details</source>
-      <translation>Detaylar</translation>
-    </message>
-    <message>
       <source>Export Diagnostics</source>
       <translation>İhracat Diagnostikleri</translation>
     </message>
@@ -1063,8 +1079,12 @@
       <translation>OpenSubtitles Anahtarı Gerekli</translation>
     </message>
     <message>
-      <source>Add an OpenSubtitles API key in Settings.</source>
-      <translation>Ayarlara OpenSubtitles API anahtarı ekleyin.</translation>
+      <source>Estimated translation cost: {range}</source>
+      <translation>Tahmini çeviri maliyeti: {range}</translation>
+    </message>
+    <message>
+      <source>Pricing is unavailable for this custom model.</source>
+      <translation>Bu özel model için fiyatlandırma mevcut değildir.</translation>
     </message>
     <message>
       <source>JSON files</source>
@@ -1151,16 +1171,8 @@ Açılış talimatları?</translation>
       <translation>Standart fiyat: 1M tokeni başına ${input_rate:g} giriş / ${output_rate:g} çıkış.</translation>
     </message>
     <message>
-      <source>Pricing is unavailable for this custom model.</source>
-      <translation>Bu özel model için fiyatlandırma mevcut değildir.</translation>
-    </message>
-    <message>
       <source>No OpenAI translation cost for this method.</source>
       <translation>Bu yöntem için OpenAI çeviri maliyeti yoktur.</translation>
-    </message>
-    <message>
-      <source>Estimated translation cost: {range}</source>
-      <translation>Tahmini çeviri maliyeti: {range}</translation>
     </message>
     <message>
       <source>If translation is needed: about {range}</source>
@@ -1221,10 +1233,6 @@ Açılış talimatları?</translation>
     <message>
       <source>Subtitle processing and media files stay on this Mac.</source>
       <translation>Alt başlık işleme ve medya dosyaları bu Mac'te kalır.</translation>
-    </message>
-    <message>
-      <source>OpenAI receives subtitle text only when you translate.</source>
-      <translation>OpenAI sadece çevirdiğinizde alt başlık metni alır.</translation>
     </message>
     <message>
       <source>OpenSubtitles receives search metadata only when you search.</source>

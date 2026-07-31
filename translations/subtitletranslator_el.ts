@@ -163,12 +163,32 @@
       <translation>Κατεβάσεις</translation>
     </message>
     <message>
-      <source>Use Selected</source>
-      <translation>Χρήση Επιλεγμένη</translation>
+      <source>Details</source>
+      <translation>Πληροφορίες</translation>
+    </message>
+    <message>
+      <source>Skip these OpenSubtitles results and translate the source subtitle with OpenAI.</source>
+      <translation>Παραλείψτε αυτά τα αποτελέσματα του OpenSubtitles και μεταφράστε τους αρχικούς υπότιτλους με το OpenAI.</translation>
+    </message>
+    <message>
+      <source>OpenAI receives subtitle text only when you translate.</source>
+      <translation>Η OpenAI λαμβάνει το υπότιτλο μόνο όταν μεταφράζετε.</translation>
+    </message>
+    <message>
+      <source>Use Selected Subtitle</source>
+      <translation>Χρήση επιλεγμένων υποτίτλων</translation>
+    </message>
+    <message>
+      <source>Translate Source Instead</source>
+      <translation>Μετάφραση των αρχικών υποτίτλων αντ’ αυτού</translation>
     </message>
     <message>
       <source>Cancel</source>
       <translation>Ακύρωση</translation>
+    </message>
+    <message>
+      <source>Add an OpenSubtitles API key in Settings.</source>
+      <translation>Προσθέστε ένα κλειδί API OpenSubtitles στις ρυθμίσεις.</translation>
     </message>
     <message>
       <source>Searching...</source>
@@ -751,10 +771,6 @@
       <translation>Προετοιμάστε υποτιτλήσεις</translation>
     </message>
     <message>
-      <source>Details</source>
-      <translation>Πληροφορίες</translation>
-    </message>
-    <message>
       <source>Export Diagnostics</source>
       <translation>Διαγνωστικές για τις εξαγωγές</translation>
     </message>
@@ -1063,8 +1079,12 @@
       <translation>Απαιτείται κλειδί OpenSubtitles</translation>
     </message>
     <message>
-      <source>Add an OpenSubtitles API key in Settings.</source>
-      <translation>Προσθέστε ένα κλειδί API OpenSubtitles στις ρυθμίσεις.</translation>
+      <source>Estimated translation cost: {range}</source>
+      <translation>Εκτιμώμενο κόστος μεταφράσεων: {range}</translation>
+    </message>
+    <message>
+      <source>Pricing is unavailable for this custom model.</source>
+      <translation>Η τιμή δεν είναι διαθέσιμη για αυτό το ειδικό μοντέλο.</translation>
     </message>
     <message>
       <source>JSON files</source>
@@ -1151,16 +1171,8 @@ Open setup instructions?</source>
       <translation>Στυλ: ${input_rate:g} input / ${output_rate:g} output ανά 1M tokens.</translation>
     </message>
     <message>
-      <source>Pricing is unavailable for this custom model.</source>
-      <translation>Η τιμή δεν είναι διαθέσιμη για αυτό το ειδικό μοντέλο.</translation>
-    </message>
-    <message>
       <source>No OpenAI translation cost for this method.</source>
       <translation>Δεν υπάρχει κόστος μεταφράσεως OpenAI για αυτή τη μέθοδο.</translation>
-    </message>
-    <message>
-      <source>Estimated translation cost: {range}</source>
-      <translation>Εκτιμώμενο κόστος μεταφράσεων: {range}</translation>
     </message>
     <message>
       <source>If translation is needed: about {range}</source>
@@ -1221,10 +1233,6 @@ Open setup instructions?</source>
     <message>
       <source>Subtitle processing and media files stay on this Mac.</source>
       <translation>Η επεξεργασία υπότιτλων και τα αρχεία μέσων ενημέρωσης παραμένουν στο Mac.</translation>
-    </message>
-    <message>
-      <source>OpenAI receives subtitle text only when you translate.</source>
-      <translation>Η OpenAI λαμβάνει το υπότιτλο μόνο όταν μεταφράζετε.</translation>
     </message>
     <message>
       <source>OpenSubtitles receives search metadata only when you search.</source>
