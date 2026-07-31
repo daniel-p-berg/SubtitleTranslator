@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.9.0-beta.14
+
+- Kept two-finger page scrolling from changing closed dropdown selections when
+  the pointer passes over a control.
+- Restricted OpenAI selection to GPT-5.6 Luna, Terra, and Sol with reasoning
+  levels from Low through Maximum.
+- Migrated unsupported saved model and reasoning choices to the safe default.
+- Updated projected translation costs to OpenAI's July 30, 2026 standard price
+  reductions for GPT-5.6 Luna and Terra.
+
 ## 0.9.0-beta.13
 
 - Unified native Qt button symbols into one restrained graphite icon treatment

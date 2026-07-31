@@ -7,14 +7,21 @@ from dataclasses import dataclass
 from pathlib import Path
 
 
-PRICING_UPDATED = "2026-07-11"
+PRICING_UPDATED = "2026-07-30"
 MODEL_PRICING_PER_MILLION: dict[str, tuple[float, float]] = {
-    "gpt-5.6-luna": (1.00, 6.00),
-    "gpt-5.6-terra": (2.50, 15.00),
+    "gpt-5.6-luna": (0.20, 1.20),
+    "gpt-5.6-terra": (2.00, 12.00),
     "gpt-5.6-sol": (5.00, 30.00),
 }
+MODEL_DISPLAY_NAMES: dict[str, str] = {
+    "gpt-5.6-luna": "GPT-5.6 Luna",
+    "gpt-5.6-terra": "GPT-5.6 Terra",
+    "gpt-5.6-sol": "GPT-5.6 Sol",
+}
+SUPPORTED_MODELS = tuple(MODEL_DISPLAY_NAMES)
+SUPPORTED_REASONING_EFFORTS = ("low", "medium", "high", "xhigh", "max")
 QUALITY_PRESETS: dict[str, tuple[str, str]] = {
-    "economy": ("gpt-5.6-luna", "none"),
+    "economy": ("gpt-5.6-luna", "low"),
     "balanced": ("gpt-5.6-terra", "low"),
     "best": ("gpt-5.6-sol", "high"),
 }

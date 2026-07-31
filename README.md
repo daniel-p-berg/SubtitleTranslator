@@ -111,15 +111,15 @@ offers three one-click profiles:
 
 | Preset | Model | Reasoning |
 | --- | --- | --- |
-| Economy | `gpt-5.6-luna` | None |
+| Economy | `gpt-5.6-luna` | Low |
 | Balanced | `gpt-5.6-terra` | Low |
 | Best | `gpt-5.6-sol` | High |
 
-The advanced model and reasoning controls remain editable. Cost ranges use the
-standard token rates published by the
-[OpenAI model guide](https://developers.openai.com/api/docs/models/compare)
+The model selector is limited to GPT-5.6 Luna, Terra, and Sol. Reasoning can be
+set from Low through Maximum. Cost ranges use the short-context standard token
+rates published on the [OpenAI pricing page](https://developers.openai.com/api/docs/pricing)
 and are estimates rather than spending limits. The bundled rates were last
-reviewed on July 11, 2026.
+reviewed on July 30, 2026.
 
 ### OpenSubtitles
 

@@ -32,7 +32,7 @@ SETTINGS_PATH = APP_SUPPORT_DIR / "settings.json"
 LEGACY_SETTINGS_PATH = Path.home() / ".animesub_config.json"
 
 DEFAULT_SETTINGS: dict[str, Any] = {
-    "version": 5,
+    "version": 6,
     "media_locations": [],
     "recent_media_files": [],
     "workspace_directory": str(WORKSPACE_DIR),
@@ -44,7 +44,7 @@ DEFAULT_SETTINGS: dict[str, Any] = {
     "source_language": "auto",
     "translation_model": "gpt-5.6-luna",
     "reasoning_effort": "low",
-    "quality_preset": "custom",
+    "quality_preset": "economy",
     "prompt_overrides": {},
     "mpv_path": "",
     "interface_language": "system",
@@ -416,14 +416,10 @@ def _validated_settings(values: dict[str, Any]) -> dict[str, Any]:
         result["source_language"] = DEFAULT_SETTINGS["source_language"]
     if result.get("interface_language") not in {"system", *supported_languages}:
         result["interface_language"] = DEFAULT_SETTINGS["interface_language"]
-    if result.get("reasoning_effort") not in {
-        "none",
-        "low",
-        "medium",
-        "high",
-        "xhigh",
-        "max",
-    }:
+    if (
+        result.get("reasoning_effort")
+        not in translation_cost.SUPPORTED_REASONING_EFFORTS
+    ):
         result["reasoning_effort"] = DEFAULT_SETTINGS["reasoning_effort"]
     if result.get("quality_preset") not in {
         "economy",
@@ -437,19 +433,22 @@ def _validated_settings(values: dict[str, Any]) -> dict[str, Any]:
     if result.get("theme") not in {"system", "light", "dark"}:
         result["theme"] = DEFAULT_SETTINGS["theme"]
 
-    for key in (
-        "workspace_directory",
-        "translation_model",
-    ):
+    for key in ("workspace_directory",):
         value = str(result.get(key, "")).strip()
         result[key] = value or DEFAULT_SETTINGS[key]
+
+    model = str(result.get("translation_model", "")).strip()
+    result["translation_model"] = (
+        model
+        if model in translation_cost.SUPPORTED_MODELS
+        else DEFAULT_SETTINGS["translation_model"]
+    )
 
     matching_preset = translation_cost.preset_for(
         result["translation_model"],
         result["reasoning_effort"],
     )
-    if result["quality_preset"] != "custom":
-        result["quality_preset"] = matching_preset
+    result["quality_preset"] = matching_preset
 
     overrides: dict[str, str] = {}
     raw_overrides = result.get("prompt_overrides", {})

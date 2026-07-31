@@ -150,8 +150,25 @@ class UsabilitySafetyTests(unittest.TestCase):
     def test_translation_presets_and_cost_ranges(self) -> None:
         self.assertEqual(
             translation_cost.QUALITY_PRESETS["economy"],
-            ("gpt-5.6-luna", "none"),
+            ("gpt-5.6-luna", "low"),
         )
+        self.assertEqual(
+            translation_cost.SUPPORTED_MODELS,
+            ("gpt-5.6-luna", "gpt-5.6-terra", "gpt-5.6-sol"),
+        )
+        self.assertEqual(
+            translation_cost.SUPPORTED_REASONING_EFFORTS,
+            ("low", "medium", "high", "xhigh", "max"),
+        )
+        self.assertEqual(
+            translation_cost.MODEL_PRICING_PER_MILLION,
+            {
+                "gpt-5.6-luna": (0.20, 1.20),
+                "gpt-5.6-terra": (2.00, 12.00),
+                "gpt-5.6-sol": (5.00, 30.00),
+            },
+        )
+        self.assertEqual(translation_cost.PRICING_UPDATED, "2026-07-30")
         self.assertEqual(
             translation_cost.preset_for("gpt-5.6-terra", "low"),
             "balanced",
@@ -174,7 +191,7 @@ class UsabilitySafetyTests(unittest.TestCase):
                 100_000,
                 50_000,
             ),
-            0.40,
+            0.08,
         )
 
 
@@ -613,7 +630,8 @@ class PrivacyAndSettingsTests(unittest.TestCase):
                         "target_language": "not-a-language",
                         "source_language": "also-invalid",
                         "interface_language": "invalid-locale",
-                        "reasoning_effort": "unlimited",
+                        "translation_model": "custom-model",
+                        "reasoning_effort": "none",
                         "output_mode": "overwrite",
                         "prompt_overrides": {
                             "vi": "missing required placeholders",
@@ -643,6 +661,11 @@ class PrivacyAndSettingsTests(unittest.TestCase):
             loaded["reasoning_effort"],
             settings.DEFAULT_SETTINGS["reasoning_effort"],
         )
+        self.assertEqual(
+            loaded["translation_model"],
+            settings.DEFAULT_SETTINGS["translation_model"],
+        )
+        self.assertEqual(loaded["quality_preset"], "economy")
         self.assertEqual(loaded["output_mode"], "alongside")
         self.assertEqual(loaded["prompt_overrides"], {})
 

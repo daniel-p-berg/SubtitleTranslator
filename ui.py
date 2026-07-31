@@ -12,6 +12,7 @@ from typing import Any, Callable
 from PySide6.QtCore import (
     QItemSelectionModel,
     QLocale,
+    QRect,
     QSize,
     QThread,
     QTimer,
@@ -26,8 +27,10 @@ from PySide6.QtGui import (
     QDragEnterEvent,
     QDropEvent,
     QIcon,
+    QPaintEvent,
     QPainter,
     QPixmap,
+    QWheelEvent,
 )
 from PySide6.QtWidgets import (
     QAbstractItemView,
@@ -141,6 +144,38 @@ def _set_standard_icon(
         _tinted_standard_icon(button, standard_pixmap, color=color)
     )
     button.setIconSize(QSize(16, 16))
+
+
+class PageScrollComboBox(QComboBox):
+    """Leave closed-combo wheel gestures available to the containing page."""
+
+    def wheelEvent(self, event: QWheelEvent) -> None:
+        event.ignore()
+
+    def paintEvent(self, event: QPaintEvent) -> None:
+        super().paintEvent(event)
+        arrow_size = 12
+        arrow_x = (
+            9
+            if self.layoutDirection() == Qt.LayoutDirection.RightToLeft
+            else self.width() - arrow_size - 9
+        )
+        painter = QPainter(self)
+        _tinted_standard_icon(
+            self,
+            QStyle.StandardPixmap.SP_ArrowDown,
+        ).paint(
+            painter,
+            QRect(
+                arrow_x,
+                (self.height() - arrow_size) // 2,
+                arrow_size,
+                arrow_size,
+            ),
+            Qt.AlignmentFlag.AlignCenter,
+            QIcon.Mode.Normal if self.isEnabled() else QIcon.Mode.Disabled,
+        )
+        painter.end()
 
 
 def _localized_pipeline_stage(stage: str) -> str:
@@ -333,6 +368,9 @@ def apply_application_style(application: QApplication) -> None:
         QComboBox::drop-down {{
             border: 0;
             width: 28px;
+        }}
+        QComboBox::down-arrow {{
+            image: none;
         }}
         QComboBox QAbstractItemView {{
             background: {PANEL};
@@ -1851,7 +1889,7 @@ class SetupChecklistDialog(QDialog):
             self._refresh()
             return
 
-        model = self.owner.model_combo.currentText().strip()
+        model = str(self.owner.model_combo.currentData() or "")
 
         def run_tests() -> dict[str, tuple[bool, str]]:
             if provider == "openai":
@@ -2065,10 +2103,10 @@ class MainWindow(QMainWindow):
         control_grid = QGridLayout(controls)
         control_grid.setHorizontalSpacing(14)
         control_grid.setVerticalSpacing(11)
-        self.source_combo = QComboBox()
+        self.source_combo = PageScrollComboBox()
         self.source_combo.setAccessibleName(tr("Source"))
         self.source_combo.addItem(tr("Auto-detect"), "auto")
-        self.target_combo = QComboBox()
+        self.target_combo = PageScrollComboBox()
         self.target_combo.setAccessibleName(tr("Target"))
         for language in languages.all_languages():
             display = i18n.display_name(language.code)
@@ -2321,7 +2359,7 @@ class MainWindow(QMainWindow):
 
         interface_group = QGroupBox(tr("Application Interface"))
         interface_layout = QGridLayout(interface_group)
-        self.interface_combo = QComboBox()
+        self.interface_combo = PageScrollComboBox()
         self.interface_combo.setAccessibleName(tr("Application language"))
         self.interface_combo.addItem(
             tr("Use System Language ({language})").format(
@@ -2434,7 +2472,7 @@ class MainWindow(QMainWindow):
         files_layout.addWidget(workspace_browse, 2, 2)
         files_layout.addWidget(workspace_open, 2, 3)
 
-        self.output_mode_combo = QComboBox()
+        self.output_mode_combo = PageScrollComboBox()
         self.output_mode_combo.setAccessibleName(tr("Output location"))
         self.output_mode_combo.addItem(
             tr("Beside original media"),
@@ -2502,25 +2540,28 @@ class MainWindow(QMainWindow):
         translation_layout.addWidget(QLabel(tr("Quality preset")), 0, 0)
         translation_layout.addLayout(preset_row, 0, 1, 1, 3)
 
-        self.model_combo = QComboBox()
+        self.model_combo = PageScrollComboBox()
         self.model_combo.setAccessibleName(tr("OpenAI model"))
-        self.model_combo.setEditable(True)
+        self.model_combo.setEditable(False)
         self.model_combo.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
-        self.model_combo.addItems(
-            ["gpt-5.6-luna", "gpt-5.6-terra", "gpt-5.6-sol"]
-        )
-        self.reasoning_combo = QComboBox()
+        for model in translation_cost.SUPPORTED_MODELS:
+            self.model_combo.addItem(
+                translation_cost.MODEL_DISPLAY_NAMES[model],
+                model,
+            )
+        self.reasoning_combo = PageScrollComboBox()
         self.reasoning_combo.setAccessibleName(tr("Reasoning"))
-        for value, label in (
-            ("none", tr("None")),
-            ("low", tr("Low")),
-            ("medium", tr("Medium")),
-            ("high", tr("High")),
-            ("xhigh", tr("Extra High")),
-            ("max", tr("Maximum")),
-        ):
-            self.reasoning_combo.addItem(label, value)
-        self.model_combo.currentTextChanged.connect(
+        reasoning_labels = {
+            "none": tr("None"),
+            "low": tr("Low"),
+            "medium": tr("Medium"),
+            "high": tr("High"),
+            "xhigh": tr("Extra High"),
+            "max": tr("Maximum"),
+        }
+        for effort in translation_cost.SUPPORTED_REASONING_EFFORTS:
+            self.reasoning_combo.addItem(reasoning_labels[effort], effort)
+        self.model_combo.currentIndexChanged.connect(
             self._advanced_translation_changed
         )
         self.reasoning_combo.currentIndexChanged.connect(
@@ -2542,7 +2583,7 @@ class MainWindow(QMainWindow):
             3,
         )
 
-        self.prompt_language_combo = QComboBox()
+        self.prompt_language_combo = PageScrollComboBox()
         self.prompt_language_combo.setAccessibleName(tr("Prompt profile"))
         for language in languages.all_languages():
             self.prompt_language_combo.addItem(
@@ -2636,7 +2677,10 @@ class MainWindow(QMainWindow):
             self.preferences["custom_output_directory"]
         )
         self._setting_translation_controls = True
-        self.model_combo.setCurrentText(self.preferences["translation_model"])
+        _set_combo_data(
+            self.model_combo,
+            self.preferences["translation_model"],
+        )
         _set_combo_data(
             self.reasoning_combo,
             self.preferences["reasoning_effort"],
@@ -3092,7 +3136,7 @@ class MainWindow(QMainWindow):
         )
 
     def _translation_review_summary(self) -> str:
-        model = self.model_combo.currentText().strip()
+        model = str(self.model_combo.currentData() or "")
         reasoning = str(self.reasoning_combo.currentData() or "")
         estimate = translation_cost.estimate_for_duration(
             self._media_duration_seconds,
@@ -3352,7 +3396,7 @@ class MainWindow(QMainWindow):
                     ),
                 )
                 return
-        model = self.model_combo.currentText().strip()
+        model = str(self.model_combo.currentData() or "")
         self.openai_state.setText(tr("Testing..."))
         worker = FunctionThread(
             lambda: translator.test_api_key(key, model),
@@ -3486,7 +3530,7 @@ class MainWindow(QMainWindow):
             return
         model, reasoning = values
         self._setting_translation_controls = True
-        self.model_combo.setCurrentText(model)
+        _set_combo_data(self.model_combo, model)
         _set_combo_data(self.reasoning_combo, reasoning)
         self._setting_translation_controls = False
         self._sync_quality_buttons()
@@ -3500,7 +3544,7 @@ class MainWindow(QMainWindow):
 
     def _sync_quality_buttons(self) -> None:
         preset = translation_cost.preset_for(
-            self.model_combo.currentText().strip(),
+            str(self.model_combo.currentData() or ""),
             str(self.reasoning_combo.currentData() or ""),
         )
         for code, button in self.quality_buttons.items():
@@ -3512,7 +3556,7 @@ class MainWindow(QMainWindow):
     def _update_cost_estimate(self, *_args: object) -> None:
         if not hasattr(self, "cost_label"):
             return
-        model = self.model_combo.currentText().strip()
+        model = str(self.model_combo.currentData() or "")
         reasoning = str(self.reasoning_combo.currentData() or "")
         rates = translation_cost.MODEL_PRICING_PER_MILLION.get(model)
         if rates:
@@ -3627,11 +3671,11 @@ class MainWindow(QMainWindow):
                 "custom_output_directory": self.custom_output_edit.text().strip(),
                 "target_language": self.target_combo.currentData(),
                 "source_language": self.source_combo.currentData(),
-                "translation_model": self.model_combo.currentText().strip()
+                "translation_model": self.model_combo.currentData()
                 or "gpt-5.6-luna",
                 "reasoning_effort": self.reasoning_combo.currentData(),
                 "quality_preset": translation_cost.preset_for(
-                    self.model_combo.currentText().strip(),
+                    str(self.model_combo.currentData() or ""),
                     str(self.reasoning_combo.currentData() or ""),
                 ),
                 "cleanup_intermediates": self.clean_checkbox.isChecked(),
