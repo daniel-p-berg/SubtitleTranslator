@@ -100,6 +100,13 @@ class UsabilitySafetyTests(unittest.TestCase):
             self.assertEqual(preview.conflicts, ("sub-pos",))
             self.assertIn("hwdec=yes", preview.proposed_text)
             self.assertIn("sub-pos=91", preview.proposed_text)
+            self.assertIn("slang=eng,vie", preview.proposed_text)
+            self.assertIn("sid=auto", preview.proposed_text)
+            self.assertIn(
+                "# SubtitleTranslator disabled conflicting option: sub-pos=44",
+                preview.proposed_text,
+            )
+            self.assertNotIn("\nsub-pos=44\n", preview.proposed_text)
             self.assertIn(mpv_config.BEGIN_MARKER, preview.proposed_text)
 
             result = mpv_config.apply_configuration(
@@ -633,6 +640,10 @@ class PrivacyAndSettingsTests(unittest.TestCase):
                         "translation_model": "custom-model",
                         "reasoning_effort": "none",
                         "output_mode": "overwrite",
+                        "mpv_primary_position": 400,
+                        "mpv_secondary_position": -20,
+                        "mpv_primary_language": "invalid-primary",
+                        "mpv_secondary_language": "invalid-secondary",
                         "prompt_overrides": {
                             "vi": "missing required placeholders",
                             "unknown": "also invalid",
@@ -667,7 +678,44 @@ class PrivacyAndSettingsTests(unittest.TestCase):
         )
         self.assertEqual(loaded["quality_preset"], "economy")
         self.assertEqual(loaded["output_mode"], "alongside")
+        self.assertEqual(loaded["mpv_primary_position"], 100)
+        self.assertEqual(loaded["mpv_secondary_position"], 0)
+        self.assertEqual(loaded["mpv_primary_language"], "en")
+        self.assertEqual(loaded["mpv_secondary_language"], "vi")
         self.assertEqual(loaded["prompt_overrides"], {})
+
+    def test_mpv_layout_preferences_persist_across_restart(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "settings.json"
+            store = settings.SettingsStore(path)
+            saved = {
+                **settings.DEFAULT_SETTINGS,
+                "mpv_primary_position": 87,
+                "mpv_secondary_position": 13,
+                "mpv_primary_language": "vi",
+                "mpv_secondary_language": "en",
+                "mpv_show_secondary": False,
+                "mpv_auto_select_secondary": False,
+            }
+            store.save(saved)
+            reopened = settings.SettingsStore(path).load()
+
+        self.assertEqual(reopened["mpv_primary_position"], 87)
+        self.assertEqual(reopened["mpv_secondary_position"], 13)
+        self.assertEqual(reopened["mpv_primary_language"], "vi")
+        self.assertEqual(reopened["mpv_secondary_language"], "en")
+        self.assertFalse(reopened["mpv_show_secondary"])
+        self.assertFalse(reopened["mpv_auto_select_secondary"])
+
+    def test_duplicate_mpv_role_languages_are_normalized(self) -> None:
+        values = {
+            **settings.DEFAULT_SETTINGS,
+            "mpv_primary_language": "vi",
+            "mpv_secondary_language": "vi",
+        }
+        normalized = settings._validated_settings(values)
+        self.assertEqual(normalized["mpv_primary_language"], "vi")
+        self.assertEqual(normalized["mpv_secondary_language"], "en")
 
     def test_public_text_has_no_personal_absolute_paths_or_disallowed_label(self) -> None:
         root = Path(__file__).parent
@@ -776,6 +824,22 @@ class DependencySetupTests(unittest.TestCase):
 
 
 class MediaDiscoveryTests(unittest.TestCase):
+    def test_remembered_merged_output_survives_restart_and_is_launchable(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            media = root / "Episode [Subtitled].mkv"
+            media.write_bytes(b"merged")
+            settings_path = root / "settings.json"
+
+            settings.SettingsStore(settings_path).remember_media_file(media)
+            reopened = settings.SettingsStore(settings_path).load()
+            recent = media_launcher.recent_media_files(
+                [],
+                files=reopened["recent_media_files"],
+            )
+
+        self.assertEqual(recent, [media.resolve()])
+
     def test_recent_files_do_not_expand_into_implicit_parent_scans(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -1614,6 +1678,25 @@ class MuxTests(unittest.TestCase):
         self.assertFalse(tracks[1].default)
         self.assertEqual(tracks[0].title, "English (PGS)")
 
+    def test_english_text_is_primary_and_vietnamese_is_secondary(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            english = root / "source.en.srt"
+            vietnamese = root / "target.vi.srt"
+            english.write_text(SRT, encoding="utf-8")
+            vietnamese.write_text(TRANSLATED_SRT, encoding="utf-8")
+
+            tracks = pipeline.SubtitlePipeline._build_merge_tracks(
+                str(vietnamese),
+                languages.get_language("vi"),
+                pipeline._Reference(str(english), "en", "English", False),
+                None,
+            )
+
+        self.assertEqual([track.language_code for track in tracks], ["en", "vi"])
+        self.assertTrue(tracks[0].default)
+        self.assertFalse(tracks[1].default)
+
     def test_mpv_launcher_explicitly_selects_dual_subtitle_roles(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             media = Path(temporary) / "Movie.mkv"
@@ -1644,10 +1727,44 @@ class MuxTests(unittest.TestCase):
         self.assertEqual(arguments[0], "/fake/mpv")
         self.assertIn("--sid=1", arguments)
         self.assertIn("--secondary-sid=2", arguments)
-        self.assertIn("--sub-pos=88", arguments)
-        self.assertIn("--secondary-sub-pos=12", arguments)
+        self.assertIn("--sub-pos=90", arguments)
+        self.assertIn("--secondary-sub-pos=10", arguments)
         self.assertEqual(arguments[-2:], ["--", str(media.resolve())])
         thread.assert_called_once()
+
+    def test_mpv_launcher_uses_selected_subtitle_positions(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            media = Path(temporary) / "Movie.mkv"
+            media.write_bytes(b"media")
+            process = SimpleNamespace(pid=42, wait=lambda: 0)
+
+            with (
+                mock.patch.object(
+                    media_launcher,
+                    "resolve_mpv_executable",
+                    return_value="/fake/mpv",
+                ),
+                mock.patch.object(
+                    media_launcher,
+                    "_subtitle_role_options",
+                    return_value=("--sid=1", "--secondary-sid=2"),
+                ),
+                mock.patch.object(
+                    media_launcher.subprocess,
+                    "Popen",
+                    return_value=process,
+                ) as popen,
+                mock.patch.object(media_launcher.threading, "Thread"),
+            ):
+                media_launcher.launch_in_mpv(
+                    media,
+                    primary_position=84,
+                    secondary_position=16,
+                )
+
+        arguments = popen.call_args.args[0]
+        self.assertIn("--sub-pos=84", arguments)
+        self.assertIn("--secondary-sub-pos=16", arguments)
 
     def test_mpv_roles_put_pgs_primary_and_text_secondary(self) -> None:
         streams = [
@@ -1672,6 +1789,108 @@ class MuxTests(unittest.TestCase):
             options = media_launcher._subtitle_role_options("/tmp/movie.mkv")
 
         self.assertEqual(options, ("--sid=1", "--secondary-sid=2"))
+
+    def test_mpv_roles_use_languages_when_vietnamese_is_default_first(self) -> None:
+        streams = [
+            {
+                "codec_type": "subtitle",
+                "codec_name": "subrip",
+                "disposition": {"default": 1},
+                "tags": {"language": "vie", "title": "Vietnamese"},
+            },
+            {
+                "codec_type": "subtitle",
+                "codec_name": "subrip",
+                "disposition": {"default": 0},
+                "tags": {"language": "eng", "title": "English"},
+            },
+        ]
+        with mock.patch.object(
+            media_launcher,
+            "_probe_subtitle_streams",
+            return_value=streams,
+        ):
+            options = media_launcher._subtitle_role_options("/tmp/movie.mkv")
+
+        self.assertEqual(options, ("--sid=2", "--secondary-sid=1"))
+
+    def test_mpv_roles_follow_user_selected_language_order(self) -> None:
+        streams = [
+            {
+                "codec_type": "subtitle",
+                "codec_name": "subrip",
+                "disposition": {"default": 1},
+                "tags": {"language": "eng", "title": "English"},
+            },
+            {
+                "codec_type": "subtitle",
+                "codec_name": "subrip",
+                "disposition": {"default": 0},
+                "tags": {"language": "vie", "title": "Vietnamese"},
+            },
+        ]
+        with mock.patch.object(
+            media_launcher,
+            "_probe_subtitle_streams",
+            return_value=streams,
+        ):
+            options = media_launcher._subtitle_role_options(
+                "/tmp/movie.mkv",
+                primary_language="vi",
+                secondary_language="en",
+            )
+
+        self.assertEqual(options, ("--sid=2", "--secondary-sid=1"))
+
+    def test_mpv_launch_honors_secondary_visibility_and_selection(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            media = Path(temporary) / "Movie.mkv"
+            media.write_bytes(b"media")
+            process = SimpleNamespace(pid=42, wait=lambda: 0)
+
+            with (
+                mock.patch.object(
+                    media_launcher,
+                    "resolve_mpv_executable",
+                    return_value="/fake/mpv",
+                ),
+                mock.patch.object(
+                    media_launcher,
+                    "_probe_subtitle_streams",
+                    return_value=[
+                        {
+                            "codec_type": "subtitle",
+                            "codec_name": "subrip",
+                            "disposition": {"default": 1},
+                            "tags": {"language": "eng"},
+                        },
+                        {
+                            "codec_type": "subtitle",
+                            "codec_name": "subrip",
+                            "disposition": {"default": 0},
+                            "tags": {"language": "vie"},
+                        },
+                    ],
+                ),
+                mock.patch.object(
+                    media_launcher.subprocess,
+                    "Popen",
+                    return_value=process,
+                ) as popen,
+                mock.patch.object(media_launcher.threading, "Thread"),
+            ):
+                media_launcher.launch_in_mpv(
+                    media,
+                    primary_language="vi",
+                    secondary_language="en",
+                    show_secondary=False,
+                    auto_select_secondary=False,
+                )
+
+        arguments = popen.call_args.args[0]
+        self.assertIn("--sid=2", arguments)
+        self.assertIn("--secondary-sid=no", arguments)
+        self.assertIn("--secondary-sub-visibility=no", arguments)
 
     def test_mpv_does_not_auto_select_a_second_bitmap_track(self) -> None:
         streams = [

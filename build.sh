@@ -6,7 +6,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
 APP_NAME="SubtitleTranslator"
-VERSION="${VERSION:-0.9.0-beta.14}"
+VERSION="${VERSION:-0.9.0-beta.15}"
 PYTHON="${PYTHON:-python3.12}"
 ARCH="$(uname -m)"
 TARGET_ARCH="${TARGET_ARCH:-$ARCH}"
@@ -24,7 +24,24 @@ download_license() {
     local destination="$3"
     local temporary="${destination}.download"
 
-    curl --fail --location --silent --show-error "$url" --output "$temporary"
+    if [[ -f "$destination" ]]; then
+        local existing
+        existing="$(shasum -a 256 "$destination" | awk '{print $1}')"
+        if [[ "$existing" == "$checksum" ]]; then
+            return
+        fi
+    fi
+
+    curl \
+        --fail \
+        --location \
+        --silent \
+        --show-error \
+        --connect-timeout 10 \
+        --max-time 60 \
+        --retry 2 \
+        "$url" \
+        --output "$temporary"
     local actual
     actual="$(shasum -a 256 "$temporary" | awk '{print $1}')"
     if [[ "$actual" != "$checksum" ]]; then

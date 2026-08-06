@@ -477,7 +477,39 @@ class SubtitlePipeline:
                 ),
             ]
 
-        tracks = [
+        if reference and Path(reference.path).is_file():
+            source_language = languages.get_language(reference.language_code)
+            if source_language.code != target_language.code:
+                if source_language.code == "en" and target_language.code == "vi":
+                    return [
+                        muxer.SubtitleTrack(
+                            reference.path,
+                            source_language.code,
+                            source_language.name,
+                            True,
+                        ),
+                        muxer.SubtitleTrack(
+                            target_path,
+                            target_language.code,
+                            target_language.name,
+                            False,
+                        ),
+                    ]
+                return [
+                    muxer.SubtitleTrack(
+                        target_path,
+                        target_language.code,
+                        target_language.name,
+                        True,
+                    ),
+                    muxer.SubtitleTrack(
+                        reference.path,
+                        source_language.code,
+                        source_language.name,
+                        False,
+                    ),
+                ]
+        return [
             muxer.SubtitleTrack(
                 target_path,
                 target_language.code,
@@ -485,18 +517,6 @@ class SubtitlePipeline:
                 True,
             )
         ]
-        if reference and Path(reference.path).is_file():
-            source_language = languages.get_language(reference.language_code)
-            if source_language.code != target_language.code:
-                tracks.append(
-                    muxer.SubtitleTrack(
-                        reference.path,
-                        source_language.code,
-                        source_language.name,
-                        False,
-                    )
-                )
-        return tracks
 
     def _resolve_reference(
         self,
@@ -507,12 +527,12 @@ class SubtitlePipeline:
     ) -> _Reference | None:
         target_code = languages.get_language(options.target_language).code
         preferred = options.source_language
-        stream = extractor.pick_reference_stream(
+        embedded_candidates = extractor.reference_stream_candidates(
             streams,
             preferred_language=preferred,
             excluded_language=target_code,
         )
-        if stream is not None:
+        for stream in embedded_candidates:
             profile = extractor.stream_language(stream)
             if preferred != "auto":
                 profile = languages.get_language(preferred)
@@ -527,6 +547,13 @@ class SubtitlePipeline:
                 stream,
                 output_directory=job_directory,
             )
+            if extractor.is_probable_progressive_caption_srt(path):
+                self._emit(
+                    "source",
+                    "Skipping an unusually dense progressive-caption track",
+                    17,
+                )
+                continue
             stable_path = self._copy_into_job(
                 path,
                 job_directory,

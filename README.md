@@ -173,18 +173,28 @@ brew install mpv
 Open **Settings > Video Playback > Dual Subtitle Setup**. The assistant shows
 the exact proposed `~/.config/mpv/mpv.conf`, preserves unrelated settings,
 warns about duplicate keys, creates a timestamped backup, and can restore the
-latest backup.
+latest backup. Choose the preferred language for each role as well as its
+position; these choices persist and are passed explicitly whenever the app
+launches mpv.
 
 Its managed block contains:
 
 ```conf
 # BEGIN SubtitleTranslator dual subtitles
-sub-pos=88
-secondary-sub-pos=12
+# Primary subtitle: English
+# Secondary subtitle: Vietnamese
+slang=eng,vie
+sid=auto
+sub-pos=90
+secondary-sub-pos=10
 secondary-sub-visibility=yes
 secondary-sid=auto
 # END SubtitleTranslator dual subtitles
 ```
+
+Successful merged outputs remain in the **Recent** tab after restarting the
+app. Double-click an item or select it and choose **Open in mpv**. **Open File**
+can launch an existing media file that is not yet in the list.
 
 Useful default controls:
 

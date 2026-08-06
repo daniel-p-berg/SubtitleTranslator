@@ -466,6 +466,31 @@ def test_english_selection_rejects_pgs_only() -> tuple[bool, str]:
     return False, "Expected PGS-only stream to be rejected"
 
 
+def test_progressive_caption_track_is_rejected() -> tuple[bool, str]:
+    """Verify cue-per-word tracks are not submitted for translation."""
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / "progressive.srt"
+        blocks = []
+        for index in range(600):
+            start = index * 100
+            end = start + 40
+            blocks.append(
+                f"{index + 1}\n"
+                f"00:{start // 60000:02d}:{(start // 1000) % 60:02d},{start % 1000:03d} "
+                f"--> 00:{end // 60000:02d}:{(end // 1000) % 60:02d},{end % 1000:03d}\n"
+                "Progressive text\n"
+            )
+        path.write_text("\n".join(blocks), encoding="utf-8")
+        if not extractor.is_probable_progressive_caption_srt(path):
+            return False, "Dense 40 ms cue track was not rejected"
+
+        normal = Path(tmp) / "normal.srt"
+        normal.write_text(SYNTHETIC_SRT, encoding="utf-8")
+        if extractor.is_probable_progressive_caption_srt(normal):
+            return False, "Normal subtitle was incorrectly rejected"
+    return True, "Progressive cue-per-word track rejected before translation"
+
+
 def test_selected_pgs_track_falls_back_to_no_reference() -> tuple[bool, str]:
     """Verify a manually selected PGS track becomes a recoverable no-reference case."""
     stream = {
@@ -1475,7 +1500,10 @@ def test_mpv_launch_uses_detached_direct_arguments() -> tuple[bool, str]:
         try:
             media_launcher.resolve_mpv_executable = lambda: "/fake/bin/mpv"
             media_launcher._subtitle_role_options = (
-                lambda _path: ("--sid=auto", "--secondary-sid=auto")
+                lambda _path, **_kwargs: (
+                    "--sid=auto",
+                    "--secondary-sid=auto",
+                )
             )
 
             def fake_popen(args, **kwargs):
@@ -1494,8 +1522,8 @@ def test_mpv_launch_uses_detached_direct_arguments() -> tuple[bool, str]:
             "/fake/bin/mpv",
             "--sid=auto",
             "--secondary-sid=auto",
-            "--sub-pos=88",
-            "--secondary-sub-pos=12",
+            "--sub-pos=90",
+            "--secondary-sub-pos=10",
             "--secondary-sub-visibility=yes",
             "--",
             str(media.resolve()),
@@ -1529,6 +1557,7 @@ def run_all_tests() -> None:
         ("Promo cleanup restores timing",     test_promotional_cleanup_restores_timing_match),
         ("English selection skips forced",    test_english_selection_skips_forced_track),
         ("English selection rejects PGS",     test_english_selection_rejects_pgs_only),
+        ("Progressive captions rejected",     test_progressive_caption_track_is_rejected),
         ("Selected PGS falls back",           test_selected_pgs_track_falls_back_to_no_reference),
         ("Image subtitle timings parse",      test_image_subtitle_timings_parse_packets),
         ("External image timings found",      test_external_image_subtitle_timings_found_in_subfolder),

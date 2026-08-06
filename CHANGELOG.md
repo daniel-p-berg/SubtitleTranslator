@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.9.0-beta.15
+
+- Changed the default mpv dual-subtitle layout to 90% primary and 10%
+  secondary.
+- Replaced the position spin boxes with clear sliders and a live video-frame
+  preview.
+- Added persistent primary and secondary language selectors, visibility, and
+  automatic-selection preferences to the dual-subtitle setup.
+- Passed the chosen track roles and positions explicitly to mpv so saved
+  watch state, container defaults, and older track order cannot reverse them.
+- Commented out conflicting active mpv options while preserving their original
+  text and a timestamped backup.
+- Added a direct file chooser to the Recent tab while retaining generated MKVs
+  across app restarts for one-click mpv playback.
+
 ## 0.9.0-beta.14
 
 - Kept two-finger page scrolling from changing closed dropdown selections when

@@ -54,7 +54,7 @@ from PySide6.QtWidgets import (
     QProgressBar,
     QPushButton,
     QScrollArea,
-    QSpinBox,
+    QSlider,
     QStyle,
     QTabWidget,
     QTableWidget,
@@ -178,6 +178,92 @@ class PageScrollComboBox(QComboBox):
         painter.end()
 
 
+class PageScrollSlider(QSlider):
+    """Leave wheel and trackpad scrolling available to the containing page."""
+
+    def wheelEvent(self, event: QWheelEvent) -> None:
+        event.ignore()
+
+
+class SubtitlePositionPreview(QWidget):
+    """Compact video-frame preview for primary and secondary subtitle heights."""
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self._primary = mpv_config.DEFAULT_PRIMARY_POSITION
+        self._secondary = mpv_config.DEFAULT_SECONDARY_POSITION
+        self._primary_language = i18n.display_name("en")
+        self._secondary_language = i18n.display_name("vi")
+        self.setObjectName("subtitlePositionPreview")
+        self.setAccessibleName(tr("Dual Subtitle Layout"))
+        self.setMinimumSize(260, 154)
+
+    def set_positions(self, primary: int, secondary: int) -> None:
+        self._primary = primary
+        self._secondary = secondary
+        self.update()
+
+    def set_languages(self, primary: str, secondary: str) -> None:
+        self._primary_language = primary
+        self._secondary_language = secondary
+        self.update()
+
+    def paintEvent(self, event: QPaintEvent) -> None:
+        del event
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+        frame = self.rect().adjusted(1, 1, -1, -1)
+        painter.setPen(QColor(BORDER_STRONG))
+        painter.setBrush(QColor(TEXT))
+        painter.drawRoundedRect(frame, 6, 6)
+
+        content = frame.adjusted(14, 12, -14, -12)
+        painter.setPen(QColor("#4a4a47"))
+        painter.drawLine(
+            content.left(),
+            content.center().y(),
+            content.right(),
+            content.center().y(),
+        )
+        self._draw_subtitle(
+            painter,
+            content,
+            f"{self._secondary_language} · {tr('Secondary position')}",
+            self._secondary,
+            QColor("#78d7bf"),
+        )
+        self._draw_subtitle(
+            painter,
+            content,
+            f"{self._primary_language} · {tr('Primary position')}",
+            self._primary,
+            QColor("#ffffff"),
+        )
+        painter.end()
+
+    @staticmethod
+    def _draw_subtitle(
+        painter: QPainter,
+        content: QRect,
+        label: str,
+        position: int,
+        color: QColor,
+    ) -> None:
+        metrics = painter.fontMetrics()
+        y = content.top() + round(content.height() * position / 100)
+        y = min(
+            content.bottom() - metrics.descent(),
+            max(content.top() + metrics.ascent(), y),
+        )
+        text = metrics.elidedText(
+            f"{label}  {position}%",
+            Qt.TextElideMode.ElideRight,
+            content.width(),
+        )
+        painter.setPen(color)
+        painter.drawText(content.left(), y, text)
+
+
 def _localized_pipeline_stage(stage: str) -> str:
     """Return a concise localized summary while detailed logs stay English."""
     messages = {
@@ -266,6 +352,12 @@ def apply_application_style(application: QApplication) -> None:
             font-family: "SF Mono", Menlo, monospace;
             font-size: 10px;
         }}
+        QLabel#positionValue {{
+            color: {TEXT};
+            font-family: "SF Mono", Menlo, monospace;
+            font-size: 12px;
+            font-weight: 600;
+        }}
         QLabel#pageTitle, QLabel#dialogTitle {{
             font-size: 20px;
             font-weight: 700;
@@ -294,6 +386,11 @@ def apply_application_style(application: QApplication) -> None:
             border: 0;
             min-height: 1px;
             max-height: 1px;
+        }}
+        QFrame#dialogFooter {{
+            background: {BG};
+            border: 0;
+            border-top: 1px solid {BORDER};
         }}
         QTabWidget::pane {{
             border: 0;
@@ -379,6 +476,32 @@ def apply_application_style(application: QApplication) -> None:
             padding: 4px;
             selection-background-color: {TEXT};
             selection-color: {PANEL};
+        }}
+        QSlider {{
+            min-height: 24px;
+        }}
+        QSlider::groove:horizontal {{
+            height: 4px;
+            background: {BORDER};
+            border-radius: 2px;
+        }}
+        QSlider::sub-page:horizontal {{
+            background: {TEXT};
+            border-radius: 2px;
+        }}
+        QSlider::handle:horizontal {{
+            width: 16px;
+            height: 16px;
+            margin: -7px 0;
+            background: {PANEL};
+            border: 2px solid {TEXT};
+            border-radius: 8px;
+        }}
+        QSlider::handle:horizontal:hover {{
+            border-color: {ACCENT};
+        }}
+        QSlider::handle:horizontal:focus {{
+            border-color: {FOCUS};
         }}
         QPushButton, QToolButton {{
             background: {PANEL};
@@ -1363,14 +1486,30 @@ class DependencySetupDialog(QDialog):
 class MpvSetupDialog(QDialog):
     """Preview, back up, and safely merge dual-subtitle mpv settings."""
 
-    def __init__(self, parent: QWidget) -> None:
+    def __init__(
+        self,
+        parent: QWidget,
+        *,
+        settings_store: settings.SettingsStore | None = None,
+    ) -> None:
         super().__init__(parent)
+        self.settings_store = settings_store or settings.SettingsStore()
+        preferences = self.settings_store.load()
         self.setWindowTitle(tr("mpv Setup"))
-        self.resize(840, 700)
-        self.setMinimumSize(720, 660)
-        layout = QVBoxLayout(self)
+        self.resize(860, 820)
+        self.setMinimumSize(720, 620)
+        root_layout = QVBoxLayout(self)
+        root_layout.setContentsMargins(0, 0, 0, 0)
+        scroll = QScrollArea()
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setWidgetResizable(True)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        content = QWidget()
+        layout = QVBoxLayout(content)
         layout.setContentsMargins(26, 24, 26, 24)
         layout.setSpacing(14)
+        scroll.setWidget(content)
+        root_layout.addWidget(scroll)
 
         title = QLabel(tr("mpv dual subtitles"))
         title.setObjectName("dialogTitle")
@@ -1395,35 +1534,131 @@ class MpvSetupDialog(QDialog):
         layout.addWidget(install)
 
         positions = QGroupBox(tr("Dual Subtitle Layout"))
-        positions.setMinimumHeight(168)
-        positions_layout = QGridLayout(positions)
-        positions_layout.setHorizontalSpacing(16)
-        positions_layout.setVerticalSpacing(10)
-        self.primary_position = QSpinBox()
+        positions.setMinimumHeight(250)
+        positions_layout = QVBoxLayout(positions)
+        positions_layout.setContentsMargins(0, 20, 0, 4)
+        positions_layout.setSpacing(12)
+        position_row = QHBoxLayout()
+        position_row.setSpacing(24)
+        self.position_preview = SubtitlePositionPreview()
+        position_row.addWidget(self.position_preview)
+
+        self.primary_position = PageScrollSlider(Qt.Orientation.Horizontal)
         self.primary_position.setAccessibleName(tr("Primary position"))
-        self.primary_position.setRange(0, 150)
-        self.primary_position.setValue(88)
-        self.primary_position.setSuffix("%")
-        self.secondary_position = QSpinBox()
+        self.primary_position.setRange(
+            mpv_config.MIN_SUBTITLE_POSITION,
+            mpv_config.MAX_SUBTITLE_POSITION,
+        )
+        self.primary_position.setValue(
+            int(preferences["mpv_primary_position"])
+        )
+        self.primary_position_value = QLabel()
+        self.primary_position_value.setObjectName("positionValue")
+        self.primary_position_value.setAlignment(Qt.AlignmentFlag.AlignTrailing)
+        self.primary_position_value.setMinimumWidth(46)
+        self.primary_language = PageScrollComboBox()
+        self.primary_language.setAccessibleName(
+            f"① {tr('Primary position')}"
+        )
+        self.primary_language.setToolTip(tr("selects the primary subtitle."))
+        for language in languages.all_languages():
+            self.primary_language.addItem(
+                i18n.display_name(language.code),
+                language.code,
+            )
+        _set_combo_data(
+            self.primary_language,
+            preferences.get("mpv_primary_language", "en"),
+        )
+
+        self.secondary_position = PageScrollSlider(Qt.Orientation.Horizontal)
         self.secondary_position.setAccessibleName(tr("Secondary position"))
-        self.secondary_position.setRange(0, 150)
-        self.secondary_position.setValue(12)
-        self.secondary_position.setSuffix("%")
+        self.secondary_position.setRange(
+            mpv_config.MIN_SUBTITLE_POSITION,
+            mpv_config.MAX_SUBTITLE_POSITION,
+        )
+        self.secondary_position.setValue(
+            int(preferences["mpv_secondary_position"])
+        )
+        self.secondary_position_value = QLabel()
+        self.secondary_position_value.setObjectName("positionValue")
+        self.secondary_position_value.setAlignment(Qt.AlignmentFlag.AlignTrailing)
+        self.secondary_position_value.setMinimumWidth(46)
+        self.secondary_language = PageScrollComboBox()
+        self.secondary_language.setAccessibleName(
+            f"② {tr('Secondary position')}"
+        )
+        self.secondary_language.setToolTip(
+            tr("selects the secondary subtitle.")
+        )
+        for language in languages.all_languages():
+            self.secondary_language.addItem(
+                i18n.display_name(language.code),
+                language.code,
+            )
+        _set_combo_data(
+            self.secondary_language,
+            preferences.get("mpv_secondary_language", "vi"),
+        )
+
+        primary_heading = QHBoxLayout()
+        primary_heading.addWidget(QLabel(f"① {tr('Primary position')}"))
+        primary_heading.addWidget(self.primary_language, 1)
+        primary_heading.addStretch()
+        primary_heading.addWidget(self.primary_position_value)
+        primary_editor = QVBoxLayout()
+        primary_editor.setSpacing(5)
+        primary_editor.addLayout(primary_heading)
+        primary_editor.addWidget(self.primary_position)
+        primary_markers = QHBoxLayout()
+        primary_start = QLabel("0%")
+        primary_start.setObjectName("microLabel")
+        primary_end = QLabel("100%")
+        primary_end.setObjectName("microLabel")
+        primary_markers.addWidget(primary_start)
+        primary_markers.addStretch()
+        primary_markers.addWidget(primary_end)
+        primary_editor.addLayout(primary_markers)
+
+        secondary_heading = QHBoxLayout()
+        secondary_heading.addWidget(QLabel(f"② {tr('Secondary position')}"))
+        secondary_heading.addWidget(self.secondary_language, 1)
+        secondary_heading.addStretch()
+        secondary_heading.addWidget(self.secondary_position_value)
+        secondary_editor = QVBoxLayout()
+        secondary_editor.setSpacing(5)
+        secondary_editor.addLayout(secondary_heading)
+        secondary_editor.addWidget(self.secondary_position)
+        secondary_markers = QHBoxLayout()
+        secondary_start = QLabel("0%")
+        secondary_start.setObjectName("microLabel")
+        secondary_end = QLabel("100%")
+        secondary_end.setObjectName("microLabel")
+        secondary_markers.addWidget(secondary_start)
+        secondary_markers.addStretch()
+        secondary_markers.addWidget(secondary_end)
+        secondary_editor.addLayout(secondary_markers)
+
+        editors = QVBoxLayout()
+        editors.setSpacing(14)
+        editors.addLayout(primary_editor)
+        editors.addLayout(secondary_editor)
+        position_row.addLayout(editors, 1)
+        positions_layout.addLayout(position_row)
         self.show_secondary = QCheckBox(
             tr("Show the secondary subtitle by default")
         )
-        self.show_secondary.setChecked(True)
+        self.show_secondary.setChecked(
+            bool(preferences.get("mpv_show_secondary", True))
+        )
         self.auto_secondary = QCheckBox(
             tr("Automatically select a secondary subtitle")
         )
-        self.auto_secondary.setChecked(True)
-        positions_layout.addWidget(QLabel(tr("Primary position")), 0, 0)
-        positions_layout.addWidget(self.primary_position, 0, 1)
-        positions_layout.addWidget(QLabel(tr("Secondary position")), 1, 0)
-        positions_layout.addWidget(self.secondary_position, 1, 1)
-        positions_layout.addWidget(self.show_secondary, 2, 0, 1, 2)
-        positions_layout.addWidget(self.auto_secondary, 3, 0, 1, 2)
-        positions_layout.setColumnStretch(1, 1)
+        self.auto_secondary.setChecked(
+            bool(preferences.get("mpv_auto_select_secondary", True))
+        )
+        positions_layout.addWidget(self.show_secondary)
+        positions_layout.addWidget(self.auto_secondary)
         layout.addWidget(positions)
 
         path_row = QHBoxLayout()
@@ -1458,7 +1693,7 @@ class MpvSetupDialog(QDialog):
         self.config_preview.setReadOnly(True)
         self.config_preview.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
         self.config_preview.setMinimumHeight(105)
-        self.config_preview.setMaximumHeight(160)
+        self.config_preview.setMaximumHeight(130)
         layout.addWidget(self.config_preview, 1)
 
         controls = QLabel(
@@ -1490,12 +1725,15 @@ class MpvSetupDialog(QDialog):
         row.addWidget(docs_button)
         row.addStretch()
         layout.addLayout(row)
-        action_row = QHBoxLayout()
+        footer = QFrame()
+        footer.setObjectName("dialogFooter")
+        action_row = QHBoxLayout(footer)
         action_row.addStretch()
         action_row.addWidget(self.restore_button)
         action_row.addWidget(close_button)
         action_row.addWidget(self.apply_button)
-        layout.addLayout(action_row)
+        action_row.setContentsMargins(26, 8, 26, 18)
+        root_layout.addWidget(footer)
 
         for control in (
             self.primary_position,
@@ -1503,13 +1741,53 @@ class MpvSetupDialog(QDialog):
             self.show_secondary,
             self.auto_secondary,
         ):
-            if isinstance(control, QSpinBox):
+            if isinstance(control, QSlider):
                 control.valueChanged.connect(self._refresh_preview)
             else:
                 control.toggled.connect(self._refresh_preview)
+        self.primary_language.currentIndexChanged.connect(
+            self._primary_language_changed
+        )
+        self.secondary_language.currentIndexChanged.connect(
+            self._secondary_language_changed
+        )
+        self._refresh_preview()
+
+    def _primary_language_changed(self, *_args: object) -> None:
+        primary = str(self.primary_language.currentData() or "en")
+        secondary = str(self.secondary_language.currentData() or "vi")
+        if primary == secondary:
+            _set_combo_data(
+                self.secondary_language,
+                "vi" if primary != "vi" else "en",
+            )
+        self._refresh_preview()
+
+    def _secondary_language_changed(self, *_args: object) -> None:
+        primary = str(self.primary_language.currentData() or "en")
+        secondary = str(self.secondary_language.currentData() or "vi")
+        if primary == secondary:
+            _set_combo_data(
+                self.primary_language,
+                "en" if secondary != "en" else "vi",
+            )
         self._refresh_preview()
 
     def _refresh_preview(self, *_args: object) -> None:
+        primary_position = self.primary_position.value()
+        secondary_position = self.secondary_position.value()
+        self.primary_position_value.setText(f"{primary_position}%")
+        self.secondary_position_value.setText(f"{secondary_position}%")
+        self.position_preview.set_positions(
+            primary_position,
+            secondary_position,
+        )
+        primary_language = str(self.primary_language.currentData() or "en")
+        secondary_language = str(self.secondary_language.currentData() or "vi")
+        self.position_preview.set_languages(
+            i18n.display_name(primary_language),
+            i18n.display_name(secondary_language),
+        )
         status = dependencies.resolve_tool("mpv")
         config_ready = mpv_config.managed_config_present()
         tool_state = (
@@ -1527,12 +1805,16 @@ class MpvSetupDialog(QDialog):
             f"color: {SUCCESS if status and config_ready else WARM};"
         )
         preview = mpv_config.preview_configuration(
-            primary_position=self.primary_position.value(),
-            secondary_position=self.secondary_position.value(),
+            primary_position=primary_position,
+            secondary_position=secondary_position,
             show_secondary=self.show_secondary.isChecked(),
             auto_select_secondary=self.auto_secondary.isChecked(),
+            primary_language=primary_language,
+            secondary_language=secondary_language,
         )
         self.config_preview.setPlainText(preview.proposed_text)
+        preview_scroll = self.config_preview.verticalScrollBar()
+        preview_scroll.setValue(preview_scroll.maximum())
         if preview.conflicts:
             self.conflict_state.setText(
                 tr(
@@ -1570,6 +1852,22 @@ class MpvSetupDialog(QDialog):
                 secondary_position=self.secondary_position.value(),
                 show_secondary=self.show_secondary.isChecked(),
                 auto_select_secondary=self.auto_secondary.isChecked(),
+                primary_language=str(self.primary_language.currentData() or "en"),
+                secondary_language=str(
+                    self.secondary_language.currentData() or "vi"
+                ),
+            )
+            self.settings_store.update(
+                mpv_primary_position=self.primary_position.value(),
+                mpv_secondary_position=self.secondary_position.value(),
+                mpv_primary_language=str(
+                    self.primary_language.currentData() or "en"
+                ),
+                mpv_secondary_language=str(
+                    self.secondary_language.currentData() or "vi"
+                ),
+                mpv_show_secondary=self.show_secondary.isChecked(),
+                mpv_auto_select_secondary=self.auto_secondary.isChecked(),
             )
         except OSError as exc:
             QMessageBox.critical(
@@ -1820,7 +2118,11 @@ class SetupChecklistDialog(QDialog):
         self._refresh()
 
     def _show_mpv(self) -> None:
-        MpvSetupDialog(self).exec()
+        MpvSetupDialog(
+            self,
+            settings_store=self.owner.settings_store,
+        ).exec()
+        self.owner.preferences = self.owner.settings_store.load()
         self._refresh()
 
     def _choose_folder(self) -> None:
@@ -2342,8 +2644,12 @@ class MainWindow(QMainWindow):
         play = QPushButton(tr("Open in mpv"))
         _set_standard_icon(play, QStyle.StandardPixmap.SP_MediaPlay)
         play.clicked.connect(self._play_recent)
+        open_file = QPushButton(tr("Open File"))
+        _set_standard_icon(open_file, QStyle.StandardPixmap.SP_DialogOpenButton)
+        open_file.clicked.connect(self._open_recent_file)
         buttons.addStretch()
         buttons.addWidget(load)
+        buttons.addWidget(open_file)
         buttons.addWidget(play)
         layout.addLayout(buttons)
         return page
@@ -2628,7 +2934,7 @@ class MainWindow(QMainWindow):
         mpv_browse.setAccessibleName(tr("Choose mpv executable"))
         mpv_browse.clicked.connect(self._choose_mpv)
         setup = QPushButton(tr("Dual Subtitle Setup"))
-        setup.clicked.connect(lambda: MpvSetupDialog(self).exec())
+        setup.clicked.connect(self._show_mpv_setup)
         playback_layout.addWidget(QLabel(tr("mpv executable")), 0, 0)
         playback_layout.addWidget(self.mpv_path_edit, 0, 1)
         playback_layout.addWidget(mpv_browse, 0, 2)
@@ -3223,6 +3529,28 @@ class MainWindow(QMainWindow):
             media_launcher.launch_in_mpv(
                 path,
                 configured_path=self.preferences.get("mpv_path", ""),
+                primary_position=self.preferences.get(
+                    "mpv_primary_position",
+                    mpv_config.DEFAULT_PRIMARY_POSITION,
+                ),
+                secondary_position=self.preferences.get(
+                    "mpv_secondary_position",
+                    mpv_config.DEFAULT_SECONDARY_POSITION,
+                ),
+                primary_language=self.preferences.get(
+                    "mpv_primary_language",
+                    "en",
+                ),
+                secondary_language=self.preferences.get(
+                    "mpv_secondary_language",
+                    "vi",
+                ),
+                show_secondary=bool(
+                    self.preferences.get("mpv_show_secondary", True)
+                ),
+                auto_select_secondary=bool(
+                    self.preferences.get("mpv_auto_select_secondary", True)
+                ),
             )
         except media_launcher.MpvLaunchError as exc:
             answer = QMessageBox.warning(
@@ -3232,7 +3560,14 @@ class MainWindow(QMainWindow):
                 QMessageBox.StandardButton.No | QMessageBox.StandardButton.Yes,
             )
             if answer == QMessageBox.StandardButton.Yes:
-                MpvSetupDialog(self).exec()
+                self._show_mpv_setup()
+
+    def _show_mpv_setup(self) -> None:
+        MpvSetupDialog(
+            self,
+            settings_store=self.settings_store,
+        ).exec()
+        self.preferences = self.settings_store.load()
 
     def _refresh_recent(self) -> None:
         if self._recent_worker and self._recent_worker.isRunning():
@@ -3274,6 +3609,7 @@ class MainWindow(QMainWindow):
                 Qt.ItemDataRole.UserRole,
                 str(path),
             )
+        self.recent_list.setCurrentRow(0)
 
     def _selected_recent_path(self) -> str:
         item = self.recent_list.currentItem()
@@ -3289,6 +3625,21 @@ class MainWindow(QMainWindow):
         path = self._selected_recent_path()
         if path:
             self._launch_mpv(path)
+
+    def _open_recent_file(self) -> None:
+        initial = str(Path.home() / "Downloads")
+        path, _ = QFileDialog.getOpenFileName(
+            self,
+            tr("Choose Media"),
+            initial,
+            tr("Media files")
+            + " (*.mkv *.mp4 *.m4v *.mov *.avi *.webm *.ts *.m2ts)",
+        )
+        if not path:
+            return
+        self.preferences = self.settings_store.remember_media_file(path)
+        self._refresh_recent()
+        self._launch_mpv(path)
 
     def _tab_changed(self, index: int) -> None:
         if index == 1:

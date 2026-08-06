@@ -12,6 +12,8 @@ from pathlib import Path
 
 import app_paths
 import dependencies
+import languages
+import mpv_config
 
 
 PLAYABLE_EXTENSIONS = (
@@ -32,11 +34,6 @@ _MPV_CANDIDATES = (
     "~/Applications/mpv.app/Contents/MacOS/mpv",
 )
 
-_SUBTITLE_POSITION_OPTIONS = (
-    "--sub-pos=88",
-    "--secondary-sub-pos=12",
-    "--secondary-sub-visibility=yes",
-)
 _IMAGE_SUBTITLE_CODECS = {
     "dvb_subtitle",
     "dvd_subtitle",
@@ -92,6 +89,12 @@ def launch_in_mpv(
     media_path: str | Path,
     *,
     configured_path: str = "",
+    primary_position: int = mpv_config.DEFAULT_PRIMARY_POSITION,
+    secondary_position: int = mpv_config.DEFAULT_SECONDARY_POSITION,
+    primary_language: str = "en",
+    secondary_language: str = "vi",
+    show_secondary: bool = True,
+    auto_select_secondary: bool = True,
 ) -> LaunchInfo:
     """Launch *media_path* in a detached external mpv process."""
     media = Path(media_path).expanduser().resolve()
@@ -105,13 +108,23 @@ def launch_in_mpv(
         if configured_path
         else resolve_mpv_executable()
     )
-    subtitle_options = _subtitle_role_options(media)
+    subtitle_options = _subtitle_role_options(
+        media,
+        primary_language=primary_language,
+        secondary_language=secondary_language,
+        auto_select_secondary=auto_select_secondary,
+    )
+    position_options = _subtitle_position_options(
+        primary_position,
+        secondary_position,
+        show_secondary=show_secondary,
+    )
     try:
         process = subprocess.Popen(
             [
                 executable,
                 *subtitle_options,
-                *_SUBTITLE_POSITION_OPTIONS,
+                *position_options,
                 "--",
                 str(media),
             ],
@@ -129,11 +142,43 @@ def launch_in_mpv(
     return LaunchInfo(str(media), executable, process.pid)
 
 
-def _subtitle_role_options(media_path: str | Path) -> tuple[str, str]:
+def _subtitle_position_options(
+    primary_position: int,
+    secondary_position: int,
+    *,
+    show_secondary: bool = True,
+) -> tuple[str, str, str]:
+    primary = mpv_config.normalize_position(
+        primary_position,
+        mpv_config.DEFAULT_PRIMARY_POSITION,
+    )
+    secondary = mpv_config.normalize_position(
+        secondary_position,
+        mpv_config.DEFAULT_SECONDARY_POSITION,
+    )
+    return (
+        f"--sub-pos={primary}",
+        f"--secondary-sub-pos={secondary}",
+        f"--secondary-sub-visibility={'yes' if show_secondary else 'no'}",
+    )
+
+
+def _subtitle_role_options(
+    media_path: str | Path,
+    *,
+    primary_language: str = "en",
+    secondary_language: str = "vi",
+    auto_select_secondary: bool = True,
+) -> tuple[str, str]:
     """Choose explicit MPV primary/secondary IDs when local metadata permits."""
     streams = _probe_subtitle_streams(media_path)
     if streams is None:
-        return ("--sid=auto", "--secondary-sid=auto")
+        return (
+            "--sid=auto",
+            "--secondary-sid=auto"
+            if auto_select_secondary
+            else "--secondary-sid=no",
+        )
     if not streams:
         return ("--sid=no", "--secondary-sid=no")
 
@@ -148,12 +193,54 @@ def _subtitle_role_options(media_path: str | Path) -> tuple[str, str]:
                 (stream.get("disposition") or {}).get("default")
             ),
             "forced": _stream_is_forced(stream),
+            "language": _stream_language_code(stream),
         }
         for sid, stream in enumerate(streams, start=1)
     ]
     full = [item for item in candidates if not item["forced"]] or candidates
     images = [item for item in full if item["image"]]
     text = [item for item in full if not item["image"]]
+
+    primary_code = _normalized_language_code(primary_language, "en")
+    secondary_code = _normalized_language_code(secondary_language, "vi")
+    preferred_primary = [
+        item for item in full if item["language"] == primary_code
+    ]
+    preferred_secondary = [
+        item
+        for item in text
+        if item["language"] == secondary_code
+    ]
+    if not auto_select_secondary:
+        primary_choices = preferred_primary or full
+        primary = max(primary_choices, key=_selection_score)
+        return (f"--sid={primary['sid']}", "--secondary-sid=no")
+    if preferred_primary:
+        primary = max(preferred_primary, key=_selection_score)
+        secondary_choices = [
+            item
+            for item in preferred_secondary
+            if item["sid"] != primary["sid"]
+        ]
+        if secondary_choices:
+            secondary = max(secondary_choices, key=_selection_score)
+            return (
+                f"--sid={primary['sid']}",
+                f"--secondary-sid={secondary['sid']}",
+            )
+        return (f"--sid={primary['sid']}", "--secondary-sid=no")
+
+    if preferred_secondary:
+        secondary = max(preferred_secondary, key=_selection_score)
+        primary_choices = [
+            item for item in full if item["sid"] != secondary["sid"]
+        ]
+        if primary_choices:
+            primary = max(primary_choices, key=_selection_score)
+            return (
+                f"--sid={primary['sid']}",
+                f"--secondary-sid={secondary['sid']}",
+            )
 
     if images and text:
         primary = max(images, key=_selection_score)
@@ -222,6 +309,22 @@ def _stream_is_forced(stream: dict) -> bool:
         marker in title
         for marker in ("forced", "signs", "songs", "karaoke")
     )
+
+
+def _stream_language_code(stream: dict) -> str:
+    tags = stream.get("tags") or {}
+    profile = languages.identify_language(
+        str(tags.get("language", tags.get("LANGUAGE", ""))),
+        str(tags.get("title", tags.get("TITLE", ""))),
+    )
+    return profile.code if profile else "und"
+
+
+def _normalized_language_code(value: object, default: str) -> str:
+    try:
+        return languages.get_language(str(value)).code
+    except KeyError:
+        return default
 
 
 def _selection_score(item: dict) -> tuple[int, int]:

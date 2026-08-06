@@ -15,6 +15,7 @@ import keyring
 from keyring.errors import KeyringError
 
 import languages
+import mpv_config
 import translation_cost
 
 
@@ -32,7 +33,7 @@ SETTINGS_PATH = APP_SUPPORT_DIR / "settings.json"
 LEGACY_SETTINGS_PATH = Path.home() / ".animesub_config.json"
 
 DEFAULT_SETTINGS: dict[str, Any] = {
-    "version": 6,
+    "version": 8,
     "media_locations": [],
     "recent_media_files": [],
     "workspace_directory": str(WORKSPACE_DIR),
@@ -47,6 +48,12 @@ DEFAULT_SETTINGS: dict[str, Any] = {
     "quality_preset": "economy",
     "prompt_overrides": {},
     "mpv_path": "",
+    "mpv_primary_position": mpv_config.DEFAULT_PRIMARY_POSITION,
+    "mpv_secondary_position": mpv_config.DEFAULT_SECONDARY_POSITION,
+    "mpv_primary_language": "en",
+    "mpv_secondary_language": "vi",
+    "mpv_show_secondary": True,
+    "mpv_auto_select_secondary": True,
     "interface_language": "system",
     "theme": "system",
 }
@@ -432,6 +439,27 @@ def _validated_settings(values: dict[str, Any]) -> dict[str, Any]:
         result["output_mode"] = DEFAULT_SETTINGS["output_mode"]
     if result.get("theme") not in {"system", "light", "dark"}:
         result["theme"] = DEFAULT_SETTINGS["theme"]
+
+    result["mpv_primary_position"] = mpv_config.normalize_position(
+        result.get("mpv_primary_position"),
+        mpv_config.DEFAULT_PRIMARY_POSITION,
+    )
+    result["mpv_secondary_position"] = mpv_config.normalize_position(
+        result.get("mpv_secondary_position"),
+        mpv_config.DEFAULT_SECONDARY_POSITION,
+    )
+    if result.get("mpv_primary_language") not in supported_languages:
+        result["mpv_primary_language"] = DEFAULT_SETTINGS[
+            "mpv_primary_language"
+        ]
+    if result.get("mpv_secondary_language") not in supported_languages:
+        result["mpv_secondary_language"] = DEFAULT_SETTINGS[
+            "mpv_secondary_language"
+        ]
+    if result["mpv_primary_language"] == result["mpv_secondary_language"]:
+        result["mpv_secondary_language"] = (
+            "vi" if result["mpv_primary_language"] != "vi" else "en"
+        )
 
     for key in ("workspace_directory",):
         value = str(result.get(key, "")).strip()

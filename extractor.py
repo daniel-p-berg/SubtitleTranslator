@@ -364,6 +364,23 @@ def pick_reference_stream(
     text_only: bool = True,
 ) -> dict | None:
     """Choose the best independent subtitle reference in any language."""
+    candidates = reference_stream_candidates(
+        streams,
+        preferred_language=preferred_language,
+        excluded_language=excluded_language,
+        text_only=text_only,
+    )
+    return candidates[0] if candidates else None
+
+
+def reference_stream_candidates(
+    streams: list[dict],
+    *,
+    preferred_language: str = "auto",
+    excluded_language: str | None = None,
+    text_only: bool = True,
+) -> list[dict]:
+    """Return viable embedded references in deterministic preference order."""
     candidates = [
         stream
         for stream in streams
@@ -379,13 +396,14 @@ def pick_reference_stream(
             or stream_language(stream).code != excluded
         ]
     if not candidates:
-        return None
+        return []
 
     preferred_code = None
     if preferred_language and preferred_language != "auto":
         preferred_code = languages.get_language(preferred_language).code
-    return max(
+    return sorted(
         candidates,
+        reverse=True,
         key=lambda stream: (
             1
             if preferred_code
@@ -395,6 +413,22 @@ def pick_reference_stream(
             *_stream_preference_score(stream),
         ),
     )
+
+
+def is_probable_progressive_caption_srt(path: str | Path) -> bool:
+    """Detect cue-per-word/karaoke exports that are unsafe to translate."""
+    source = Path(path)
+    try:
+        cues = subtitle_sync.parse_srt_timings(source)
+    except (OSError, ValueError):
+        return False
+    if len(cues) < 500:
+        return False
+    short_cues = sum(
+        cue.end_ms - cue.start_ms < 250
+        for cue in cues
+    )
+    return short_cues / len(cues) >= 0.55
 
 
 def pick_playback_pgs_stream(

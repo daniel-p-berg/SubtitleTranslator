@@ -11,13 +11,21 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
+import languages
+
 
 BEGIN_MARKER = "# BEGIN SubtitleTranslator dual subtitles"
 END_MARKER = "# END SubtitleTranslator dual subtitles"
+DEFAULT_PRIMARY_POSITION = 90
+DEFAULT_SECONDARY_POSITION = 10
+MIN_SUBTITLE_POSITION = 0
+MAX_SUBTITLE_POSITION = 100
 MANAGED_OPTIONS = {
+    "sid",
     "secondary-sid",
     "secondary-sub-pos",
     "secondary-sub-visibility",
+    "slang",
     "sub-pos",
 }
 DEFAULT_CONFIG_PATH = Path.home() / ".config" / "mpv" / "mpv.conf"
@@ -44,17 +52,28 @@ class ConfigWriteResult:
 
 def render_managed_block(
     *,
-    primary_position: int = 88,
-    secondary_position: int = 12,
+    primary_position: int = DEFAULT_PRIMARY_POSITION,
+    secondary_position: int = DEFAULT_SECONDARY_POSITION,
     show_secondary: bool = True,
     auto_select_secondary: bool = True,
+    primary_language: str = "en",
+    secondary_language: str = "vi",
 ) -> str:
     """Return the application-owned mpv.conf block."""
-    primary = min(150, max(0, int(primary_position)))
-    secondary = min(150, max(0, int(secondary_position)))
+    primary = normalize_position(primary_position, DEFAULT_PRIMARY_POSITION)
+    secondary = normalize_position(secondary_position, DEFAULT_SECONDARY_POSITION)
+    primary_profile = _language_profile(primary_language, "en")
+    secondary_profile = _language_profile(secondary_language, "vi")
+    language_priority = ",".join(
+        dict.fromkeys((primary_profile.mux_code, secondary_profile.mux_code))
+    )
     lines = [
         BEGIN_MARKER,
         "# Managed by SubtitleTranslator. Other mpv settings are preserved.",
+        f"# Primary subtitle: {primary_profile.name}",
+        f"# Secondary subtitle: {secondary_profile.name}",
+        f"slang={language_priority}",
+        "sid=auto",
         f"sub-pos={primary}",
         f"secondary-sub-pos={secondary}",
         f"secondary-sub-visibility={'yes' if show_secondary else 'no'}",
@@ -68,10 +87,12 @@ def render_managed_block(
 def preview_configuration(
     *,
     path: str | Path | None = None,
-    primary_position: int = 88,
-    secondary_position: int = 12,
+    primary_position: int = DEFAULT_PRIMARY_POSITION,
+    secondary_position: int = DEFAULT_SECONDARY_POSITION,
     show_secondary: bool = True,
     auto_select_secondary: bool = True,
+    primary_language: str = "en",
+    secondary_language: str = "vi",
 ) -> ConfigPreview:
     """Preview a non-destructive managed-block merge."""
     config_path = Path(path or DEFAULT_CONFIG_PATH).expanduser()
@@ -84,6 +105,8 @@ def preview_configuration(
         secondary_position=secondary_position,
         show_secondary=show_secondary,
         auto_select_secondary=auto_select_secondary,
+        primary_language=primary_language,
+        secondary_language=secondary_language,
     )
     conflicts = _find_conflicts(current)
     return ConfigPreview(
@@ -132,6 +155,22 @@ def apply_configuration(**options: object) -> ConfigWriteResult:
     finally:
         temporary.unlink(missing_ok=True)
     return ConfigWriteResult(path, backup, preview.conflicts)
+
+
+def normalize_position(value: object, default: int) -> int:
+    """Return one on-screen mpv subtitle position from 0 through 100."""
+    try:
+        position = int(value)
+    except (TypeError, ValueError):
+        position = default
+    return min(MAX_SUBTITLE_POSITION, max(MIN_SUBTITLE_POSITION, position))
+
+
+def _language_profile(value: object, default: str) -> languages.LanguageProfile:
+    try:
+        return languages.get_language(str(value))
+    except KeyError:
+        return languages.get_language(default)
 
 
 def latest_backup(path: str | Path | None = None) -> Path | None:
@@ -186,13 +225,38 @@ def _replace_managed_block(current: str, block: str) -> str:
         rf"(?ms)^{re.escape(BEGIN_MARKER)}\n.*?"
         rf"^{re.escape(END_MARKER)}[ \t]*(?:\n|$)"
     )
-    normalized = current.replace("\r\n", "\n")
+    normalized = _disable_conflicting_options(
+        current.replace("\r\n", "\n")
+    )
     if pattern.search(normalized):
         merged = pattern.sub(block + "\n", normalized, count=1)
     else:
         prefix = normalized.rstrip()
         merged = f"{prefix}\n\n{block}\n" if prefix else f"{block}\n"
     return merged
+
+
+def _disable_conflicting_options(text: str) -> str:
+    """Comment out active managed options outside the application block."""
+    outside_block = True
+    lines: list[str] = []
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped == BEGIN_MARKER:
+            outside_block = False
+        if outside_block and stripped and not stripped.startswith("#"):
+            option = stripped.split("=", 1)[0].strip().lstrip("-")
+            if option in MANAGED_OPTIONS:
+                indentation = line[: len(line) - len(line.lstrip())]
+                line = (
+                    f"{indentation}# SubtitleTranslator disabled conflicting "
+                    f"option: {line.lstrip()}"
+                )
+        lines.append(line)
+        if stripped == END_MARKER:
+            outside_block = True
+    suffix = "\n" if text.endswith("\n") else ""
+    return "\n".join(lines) + suffix
 
 
 def _find_conflicts(current: str) -> tuple[str, ...]:
