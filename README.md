@@ -175,17 +175,23 @@ the exact proposed `~/.config/mpv/mpv.conf`, preserves unrelated settings,
 warns about duplicate keys, creates a timestamped backup, and can restore the
 latest backup. Choose the preferred language for each role as well as its
 position; these choices persist and are passed explicitly whenever the app
-launches mpv.
+launches mpv. Position percentages describe the lower edge of the subtitle
+block on screen. SubtitleTranslator compensates for mpv's normal vertical
+margin, so a requested 97% is passed to mpv as 102 instead of appearing much
+higher than expected.
 
 Its managed block contains:
 
 ```conf
 # BEGIN SubtitleTranslator dual subtitles
-# Primary subtitle: English
-# Secondary subtitle: Vietnamese
+# Positions are lower-edge screen percentages; mpv values are compensated.
+# Primary subtitle: English; lower edge: 90%
+# Secondary subtitle: Vietnamese; lower edge: 10%
 slang=eng,vie
 sid=auto
-sub-pos=90
+sub-margin-y=34
+sub-use-margins=yes
+sub-pos=94
 secondary-sub-pos=10
 secondary-sub-visibility=yes
 secondary-sid=auto

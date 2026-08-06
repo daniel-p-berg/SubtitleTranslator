@@ -147,16 +147,18 @@ def _subtitle_position_options(
     secondary_position: int,
     *,
     show_secondary: bool = True,
-) -> tuple[str, str, str]:
-    primary = mpv_config.normalize_position(
+) -> tuple[str, str, str, str, str]:
+    primary = mpv_config.mpv_position_for_lower_edge(
         primary_position,
         mpv_config.DEFAULT_PRIMARY_POSITION,
     )
-    secondary = mpv_config.normalize_position(
+    secondary = mpv_config.mpv_position_for_lower_edge(
         secondary_position,
         mpv_config.DEFAULT_SECONDARY_POSITION,
     )
     return (
+        f"--sub-margin-y={mpv_config.MPV_SUBTITLE_MARGIN_Y}",
+        "--sub-use-margins=yes",
         f"--sub-pos={primary}",
         f"--secondary-sub-pos={secondary}",
         f"--secondary-sub-visibility={'yes' if show_secondary else 'no'}",

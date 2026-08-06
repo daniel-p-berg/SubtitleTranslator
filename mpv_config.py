@@ -20,13 +20,19 @@ DEFAULT_PRIMARY_POSITION = 90
 DEFAULT_SECONDARY_POSITION = 10
 MIN_SUBTITLE_POSITION = 0
 MAX_SUBTITLE_POSITION = 100
+MIN_MPV_SUBTITLE_POSITION = 0
+MAX_MPV_SUBTITLE_POSITION = 150
+MPV_SUBTITLE_REFERENCE_HEIGHT = 720
+MPV_SUBTITLE_MARGIN_Y = 34
 MANAGED_OPTIONS = {
     "sid",
     "secondary-sid",
     "secondary-sub-pos",
     "secondary-sub-visibility",
     "slang",
+    "sub-margin-y",
     "sub-pos",
+    "sub-use-margins",
 }
 DEFAULT_CONFIG_PATH = Path.home() / ".config" / "mpv" / "mpv.conf"
 
@@ -62,6 +68,11 @@ def render_managed_block(
     """Return the application-owned mpv.conf block."""
     primary = normalize_position(primary_position, DEFAULT_PRIMARY_POSITION)
     secondary = normalize_position(secondary_position, DEFAULT_SECONDARY_POSITION)
+    primary_mpv = mpv_position_for_lower_edge(primary, DEFAULT_PRIMARY_POSITION)
+    secondary_mpv = mpv_position_for_lower_edge(
+        secondary,
+        DEFAULT_SECONDARY_POSITION,
+    )
     primary_profile = _language_profile(primary_language, "en")
     secondary_profile = _language_profile(secondary_language, "vi")
     language_priority = ",".join(
@@ -70,12 +81,19 @@ def render_managed_block(
     lines = [
         BEGIN_MARKER,
         "# Managed by SubtitleTranslator. Other mpv settings are preserved.",
-        f"# Primary subtitle: {primary_profile.name}",
-        f"# Secondary subtitle: {secondary_profile.name}",
+        "# Positions are lower-edge screen percentages; mpv values are "
+        "compensated.",
+        f"# Primary subtitle: {primary_profile.name}; lower edge: {primary}%",
+        (
+            f"# Secondary subtitle: {secondary_profile.name}; "
+            f"lower edge: {secondary}%"
+        ),
         f"slang={language_priority}",
         "sid=auto",
-        f"sub-pos={primary}",
-        f"secondary-sub-pos={secondary}",
+        f"sub-margin-y={MPV_SUBTITLE_MARGIN_Y}",
+        "sub-use-margins=yes",
+        f"sub-pos={primary_mpv}",
+        f"secondary-sub-pos={secondary_mpv}",
         f"secondary-sub-visibility={'yes' if show_secondary else 'no'}",
     ]
     if auto_select_secondary:
@@ -158,12 +176,30 @@ def apply_configuration(**options: object) -> ConfigWriteResult:
 
 
 def normalize_position(value: object, default: int) -> int:
-    """Return one on-screen mpv subtitle position from 0 through 100."""
+    """Return one user-facing lower-edge percentage from 0 through 100."""
     try:
         position = int(value)
     except (TypeError, ValueError):
         position = default
     return min(MAX_SUBTITLE_POSITION, max(MIN_SUBTITLE_POSITION, position))
+
+
+def mpv_position_for_lower_edge(value: object, default: int) -> int:
+    """Convert a lower-edge percentage into mpv's margin-aware position.
+
+    mpv/libass positions ordinary text subtitles inside a 720-scaled layout
+    whose normal bottom already includes ``sub-margin-y``. Compensating for
+    that reserved margin makes the app's 0-100 value describe the subtitle
+    block's lower edge instead of exposing mpv's raw 0-150 control.
+    """
+    position = normalize_position(value, default)
+    usable_height = MPV_SUBTITLE_REFERENCE_HEIGHT - MPV_SUBTITLE_MARGIN_Y
+    scaled = position * MPV_SUBTITLE_REFERENCE_HEIGHT
+    raw_position = (scaled + usable_height // 2) // usable_height
+    return min(
+        MAX_MPV_SUBTITLE_POSITION,
+        max(MIN_MPV_SUBTITLE_POSITION, raw_position),
+    )
 
 
 def _language_profile(value: object, default: str) -> languages.LanguageProfile:
