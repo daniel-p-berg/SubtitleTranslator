@@ -99,10 +99,9 @@ class UsabilitySafetyTests(unittest.TestCase):
             )
             self.assertEqual(preview.conflicts, ("sub-pos",))
             self.assertIn("hwdec=yes", preview.proposed_text)
-            self.assertIn("lower edge: 91%", preview.proposed_text)
-            self.assertIn("sub-margin-y=34", preview.proposed_text)
+            self.assertIn("sub-margin-y=0", preview.proposed_text)
             self.assertIn("sub-use-margins=yes", preview.proposed_text)
-            self.assertIn("sub-pos=96", preview.proposed_text)
+            self.assertIn("sub-pos=91", preview.proposed_text)
             self.assertIn("slang=eng,vie", preview.proposed_text)
             self.assertIn("sid=auto", preview.proposed_text)
             self.assertIn(
@@ -125,22 +124,7 @@ class UsabilitySafetyTests(unittest.TestCase):
             mpv_config.restore_backup(result.backup_path, path=path)
             self.assertEqual(path.read_text(), original)
 
-    def test_mpv_positions_compensate_for_the_normal_bottom_margin(self) -> None:
-        expected = {
-            0: 0,
-            15: 16,
-            90: 94,
-            97: 102,
-            100: 105,
-        }
-        for lower_edge, raw_mpv_position in expected.items():
-            with self.subTest(lower_edge=lower_edge):
-                self.assertEqual(
-                    mpv_config.mpv_position_for_lower_edge(lower_edge, 90),
-                    raw_mpv_position,
-                )
-
-    def test_mpv_config_owns_margin_options_used_by_compensation(self) -> None:
+    def test_mpv_config_owns_zero_margin_and_full_canvas_options(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             path = Path(temporary) / "mpv.conf"
             path.write_text(
@@ -154,17 +138,7 @@ class UsabilitySafetyTests(unittest.TestCase):
             preview.conflicts,
             ("sub-margin-y", "sub-use-margins"),
         )
-        self.assertIn(
-            "# SubtitleTranslator disabled conflicting option: "
-            "sub-margin-y=12",
-            preview.proposed_text,
-        )
-        self.assertIn(
-            "# SubtitleTranslator disabled conflicting option: "
-            "sub-use-margins=no",
-            preview.proposed_text,
-        )
-        self.assertIn("\nsub-margin-y=34\n", preview.proposed_text)
+        self.assertIn("\nsub-margin-y=0\n", preview.proposed_text)
         self.assertIn("\nsub-use-margins=yes\n", preview.proposed_text)
 
     def test_diagnostics_redact_credentials_and_home_paths(self) -> None:
@@ -1772,9 +1746,9 @@ class MuxTests(unittest.TestCase):
         self.assertEqual(arguments[0], "/fake/mpv")
         self.assertIn("--sid=1", arguments)
         self.assertIn("--secondary-sid=2", arguments)
-        self.assertIn("--sub-margin-y=34", arguments)
+        self.assertIn("--sub-margin-y=0", arguments)
         self.assertIn("--sub-use-margins=yes", arguments)
-        self.assertIn("--sub-pos=94", arguments)
+        self.assertIn("--sub-pos=90", arguments)
         self.assertIn("--secondary-sub-pos=10", arguments)
         self.assertEqual(arguments[-2:], ["--", str(media.resolve())])
         thread.assert_called_once()
@@ -1810,8 +1784,10 @@ class MuxTests(unittest.TestCase):
                 )
 
         arguments = popen.call_args.args[0]
-        self.assertIn("--sub-pos=88", arguments)
-        self.assertIn("--secondary-sub-pos=17", arguments)
+        self.assertIn("--sub-margin-y=0", arguments)
+        self.assertIn("--sub-use-margins=yes", arguments)
+        self.assertIn("--sub-pos=84", arguments)
+        self.assertIn("--secondary-sub-pos=16", arguments)
 
     def test_mpv_roles_put_pgs_primary_and_text_secondary(self) -> None:
         streams = [

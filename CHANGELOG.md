@@ -2,12 +2,10 @@
 
 ## 0.9.0-beta.16
 
-- Redefined the 0-100% subtitle controls as the lower edge of each subtitle
-  block and compensated mpv's built-in vertical margin before playback.
-- Kept the saved percentages human-readable while showing the compensated raw
-  mpv values in the safe configuration preview.
-- Updated the live frame preview so subtitle text grows upward from the chosen
-  lower edge instead of treating the value as a text baseline.
+- Passes the selected 0-100 subtitle positions directly to mpv without
+  applying a separate margin-compensation conversion.
+- Uses a zero vertical subtitle margin so 0 and 100 map to the top and bottom
+  edges of the full playback canvas.
 
 ## 0.9.0-beta.15
 

@@ -217,7 +217,7 @@ class SubtitlePositionPreview(QWidget):
         painter.setBrush(QColor(TEXT))
         painter.drawRoundedRect(frame, 6, 6)
 
-        content = frame.adjusted(14, 4, -14, -4)
+        content = frame.adjusted(14, 1, -14, -1)
         painter.setPen(QColor("#4a4a47"))
         painter.drawLine(
             content.left(),
@@ -250,30 +250,18 @@ class SubtitlePositionPreview(QWidget):
         color: QColor,
     ) -> None:
         metrics = painter.fontMetrics()
-        lower_edge = content.top() + round(
-            (content.height() - 1) * position / 100
-        )
-        baseline = lower_edge - metrics.descent()
-        baseline = min(
+        y = content.top() + round(content.height() * position / 100)
+        y = min(
             content.bottom() - metrics.descent(),
-            max(content.top() + metrics.ascent(), baseline),
-        )
-        guide_color = QColor(color)
-        guide_color.setAlpha(120)
-        painter.setPen(guide_color)
-        painter.drawLine(
-            content.right() - 22,
-            lower_edge,
-            content.right(),
-            lower_edge,
+            max(content.top() + metrics.ascent(), y),
         )
         text = metrics.elidedText(
             f"{label}  {position}%",
             Qt.TextElideMode.ElideRight,
-            content.width() - 30,
+            content.width(),
         )
         painter.setPen(color)
-        painter.drawText(content.left(), baseline, text)
+        painter.drawText(content.left(), y, text)
 
 
 def _localized_pipeline_stage(stage: str) -> str:

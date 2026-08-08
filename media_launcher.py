@@ -148,11 +148,11 @@ def _subtitle_position_options(
     *,
     show_secondary: bool = True,
 ) -> tuple[str, str, str, str, str]:
-    primary = mpv_config.mpv_position_for_lower_edge(
+    primary = mpv_config.normalize_position(
         primary_position,
         mpv_config.DEFAULT_PRIMARY_POSITION,
     )
-    secondary = mpv_config.mpv_position_for_lower_edge(
+    secondary = mpv_config.normalize_position(
         secondary_position,
         mpv_config.DEFAULT_SECONDARY_POSITION,
     )

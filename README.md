@@ -174,24 +174,23 @@ Open **Settings > Video Playback > Dual Subtitle Setup**. The assistant shows
 the exact proposed `~/.config/mpv/mpv.conf`, preserves unrelated settings,
 warns about duplicate keys, creates a timestamped backup, and can restore the
 latest backup. Choose the preferred language for each role as well as its
-position; these choices persist and are passed explicitly whenever the app
-launches mpv. Position percentages describe the lower edge of the subtitle
-block on screen. SubtitleTranslator compensates for mpv's normal vertical
-margin, so a requested 97% is passed to mpv as 102 instead of appearing much
-higher than expected.
+position; these choices persist and are passed directly to mpv whenever the
+app launches it. For example, a selected position of 90% is passed as
+`sub-pos=90`. SubtitleTranslator sets the vertical subtitle margin to zero so
+0% and 100% represent the top and bottom edges of the full playback canvas.
+The 10% and 90% defaults provide normal visual spacing from those edges.
 
 Its managed block contains:
 
 ```conf
 # BEGIN SubtitleTranslator dual subtitles
-# Positions are lower-edge screen percentages; mpv values are compensated.
-# Primary subtitle: English; lower edge: 90%
-# Secondary subtitle: Vietnamese; lower edge: 10%
+# Primary subtitle: English
+# Secondary subtitle: Vietnamese
 slang=eng,vie
 sid=auto
-sub-margin-y=34
+sub-margin-y=0
 sub-use-margins=yes
-sub-pos=94
+sub-pos=90
 secondary-sub-pos=10
 secondary-sub-visibility=yes
 secondary-sid=auto
