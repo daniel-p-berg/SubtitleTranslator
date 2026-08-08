@@ -117,10 +117,11 @@ def translate_srt(
             cancellation_token.raise_if_cancelled()
         if progress_callback:
             progress_callback(index, len(chunks))
+        request_chunk = chunker.reassemble_srt([source_chunk])
         translated_chunks.append(
             _translate_chunk(
                 api_key.strip(),
-                source_chunk,
+                request_chunk,
                 prompt,
                 model,
                 reasoning_effort,
@@ -233,6 +234,7 @@ def _translate_chunk(
                         "chunk": chunk_number,
                         "attempt": attempt,
                         "reason": "format validation",
+                        "validation_error": str(exc),
                     },
                 )
             instructions = (

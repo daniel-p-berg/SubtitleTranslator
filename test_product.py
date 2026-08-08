@@ -20,6 +20,7 @@ from types import SimpleNamespace
 from unittest import mock
 
 import app_paths
+import chunker
 import dependencies
 import diagnostics
 import extractor
@@ -1362,6 +1363,110 @@ class ApiAndTranslationTests(unittest.TestCase):
         self.assertNotIn("memory-only-key", repr(captured))
         self.assertFalse(captured["store"])
         self.assertIn("Linea traducida", result)
+
+    def test_translation_renumbers_each_api_chunk_locally(self) -> None:
+        second_chunk = SRT.replace("1\n", "201\n", 1).replace(
+            "\n2\n", "\n202\n", 1
+        )
+        source_text = SRT.rstrip() + "\n\n" + second_chunk
+        request_chunks: list[str] = []
+
+        def echo_request(
+            _method: str,
+            _path: str,
+            _key: str,
+            *,
+            body: dict[str, object] | None = None,
+            timeout: int = 240,
+        ) -> dict:
+            del timeout
+            request_chunk = str((body or {})["input"])
+            request_chunks.append(request_chunk)
+            return {
+                "status": "completed",
+                "output": [
+                    {
+                        "type": "message",
+                        "content": [
+                            {"type": "output_text", "text": request_chunk}
+                        ],
+                    }
+                ],
+            }
+
+        with tempfile.TemporaryDirectory() as temporary:
+            source = Path(temporary) / "source.srt"
+            source.write_text(source_text, encoding="utf-8")
+            with (
+                mock.patch.object(
+                    chunker,
+                    "chunk_srt",
+                    return_value=[SRT, second_chunk],
+                ),
+                mock.patch.object(translator, "_request_json", side_effect=echo_request),
+            ):
+                result = translator.translate_srt(
+                    str(source),
+                    "memory-only-key",
+                    source_language="en",
+                    target_language="vi",
+                )
+
+        self.assertEqual(len(request_chunks), 2)
+        self.assertEqual(
+            [
+                [cue[0] for cue in translator._parse_srt_cues(item, "Request")]
+                for item in request_chunks
+            ],
+            [["1", "2"], ["1", "2"]],
+        )
+        self.assertEqual(
+            [cue[0] for cue in translator._parse_srt_cues(result, "Result")],
+            ["1", "2", "3", "4"],
+        )
+
+    def test_translation_retry_diagnostic_includes_validator_reason(self) -> None:
+        changed_number = TRANSLATED_SRT.replace("\n2\n", "\n99\n")
+        events: list[tuple[str, dict]] = []
+
+        response = {
+            "status": "completed",
+            "output": [
+                {
+                    "type": "message",
+                    "content": [
+                        {"type": "output_text", "text": changed_number}
+                    ],
+                }
+            ],
+        }
+        with (
+            mock.patch.object(translator, "_request_json", return_value=response),
+            mock.patch.object(translator.time, "sleep"),
+        ):
+            with self.assertRaisesRegex(RuntimeError, "after 3 attempts"):
+                translator._translate_chunk(
+                    "key",
+                    SRT,
+                    "Translate",
+                    "gpt-5.6-luna",
+                    "low",
+                    1,
+                    1,
+                    event_callback=lambda action, details: events.append(
+                        (action, details)
+                    ),
+                )
+
+        self.assertEqual(len(events), 3)
+        self.assertTrue(all(action == "retry" for action, _details in events))
+        self.assertTrue(
+            all(
+                details["validation_error"]
+                == "Cue number changed at position 2."
+                for _action, details in events
+            )
+        )
 
     def test_translation_rejects_changed_timestamps(self) -> None:
         changed = TRANSLATED_SRT.replace("00:00:03,000", "00:00:03,500")
