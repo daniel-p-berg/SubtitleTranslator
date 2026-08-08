@@ -6,6 +6,8 @@
   applying a separate margin-compensation conversion.
 - Uses a zero vertical subtitle margin so 0 and 100 map to the top and bottom
   edges of the full playback canvas.
+- Shows each requested raw coordinate as a guide in the layout preview while
+  keeping the preview text at its renderer-clamped position.
 
 ## 0.9.0-beta.15
 

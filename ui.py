@@ -186,7 +186,7 @@ class PageScrollSlider(QSlider):
 
 
 class SubtitlePositionPreview(QWidget):
-    """Compact video-frame preview for primary and secondary subtitle heights."""
+    """Preview raw subtitle coordinates and renderer-clamped text positions."""
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -250,7 +250,24 @@ class SubtitlePositionPreview(QWidget):
         color: QColor,
     ) -> None:
         metrics = painter.fontMetrics()
-        y = content.top() + round(content.height() * position / 100)
+        requested_y = content.top() + round(
+            (content.height() - 1) * position / 100
+        )
+        guide_color = QColor(color)
+        guide_color.setAlpha(150)
+        painter.setPen(guide_color)
+        painter.drawLine(
+            content.right() - 28,
+            requested_y,
+            content.right(),
+            requested_y,
+        )
+
+        # mpv/libass keeps the rendered text inside the canvas even when the
+        # requested raw coordinate is too close to an edge. Keeping the guide
+        # at the requested coordinate while clamping only the text makes that
+        # behavior visible, especially for secondary positions near 0%.
+        y = requested_y
         y = min(
             content.bottom() - metrics.descent(),
             max(content.top() + metrics.ascent(), y),
@@ -258,7 +275,7 @@ class SubtitlePositionPreview(QWidget):
         text = metrics.elidedText(
             f"{label}  {position}%",
             Qt.TextElideMode.ElideRight,
-            content.width(),
+            content.width() - 36,
         )
         painter.setPen(color)
         painter.drawText(content.left(), y, text)
