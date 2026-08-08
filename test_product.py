@@ -991,6 +991,24 @@ class MediaDiscoveryTests(unittest.TestCase):
 
         self.assertEqual(matches, [])
 
+    def test_bare_episode_number_rejects_other_episode_sidecar(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            video = root / "The Ghost in the Shell (2026) - 05 [WEB].mkv"
+            wrong = root / "The Ghost in the Shell (2026) - S01E04.vi.srt"
+            matching = root / "The Ghost in the Shell (2026) - S01E05.vi.srt"
+            video.write_bytes(b"video")
+            wrong.write_text(TRANSLATED_SRT, encoding="utf-8")
+            matching.write_text(TRANSLATED_SRT, encoding="utf-8")
+
+            matches = extractor.find_external_subtitles(
+                str(video),
+                media_roots=[temporary],
+                language_code="vi",
+            )
+
+        self.assertEqual([item.path for item in matches], [matching.resolve()])
+
     def test_generic_sidecar_is_allowed_in_single_video_release(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -1603,6 +1621,53 @@ class ApiAndTranslationTests(unittest.TestCase):
             ),
             [],
         )
+
+    def test_opensubtitles_bare_episode_rejects_structured_wrong_episode(self) -> None:
+        wrong = open_subtitles.SubtitleCandidate(
+            file_id=1,
+            release_name="The Ghost in the Shell S01E04",
+            file_name="the.ghost.in.the.shell.s01e04.srt",
+            language="vi",
+            download_count=100,
+            rating=9.0,
+            trusted=True,
+            source={
+                "attributes": {
+                    "feature_details": {
+                        "title": "The Ghost in the Shell",
+                        "year": 2026,
+                        "season_number": 1,
+                        "episode_number": 4,
+                    }
+                }
+            },
+        )
+        matching = open_subtitles.SubtitleCandidate(
+            file_id=2,
+            release_name="The Ghost in the Shell S01E05",
+            file_name="the.ghost.in.the.shell.s01e05.srt",
+            language="vi",
+            download_count=10,
+            rating=8.0,
+            trusted=False,
+            source={
+                "attributes": {
+                    "feature_details": {
+                        "title": "The Ghost in the Shell",
+                        "year": 2026,
+                        "season_number": 1,
+                        "episode_number": 5,
+                    }
+                }
+            },
+        )
+
+        filtered = open_subtitles._filter_filename_candidates(
+            [wrong, matching],
+            "/tmp/The Ghost in the Shell (2026) - 05 [WEB].mkv",
+        )
+
+        self.assertEqual(filtered, [matching])
 
     def test_opensubtitles_retries_normal_requests_but_not_auth_failure(self) -> None:
         class FakeResponse(BytesIO):

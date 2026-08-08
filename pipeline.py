@@ -548,12 +548,33 @@ class SubtitlePipeline:
                 output_directory=job_directory,
             )
             if extractor.is_probable_progressive_caption_srt(path):
-                self._emit(
-                    "source",
-                    "Skipping an unusually dense progressive-caption track",
-                    17,
+                collapsed_path, collapse = (
+                    extractor.collapse_repeated_progressive_caption_cues(
+                        path,
+                        output_directory=job_directory,
+                    )
                 )
-                continue
+                if (
+                    collapse.output_cues >= 25
+                    and collapse.collapsed_source_cues > 0
+                    and not extractor.is_probable_progressive_caption_srt(
+                        collapsed_path
+                    )
+                ):
+                    self._emit(
+                        "source",
+                        "Collapsed repeated animation frames into stable "
+                        "subtitle cues",
+                        17,
+                    )
+                    path = collapsed_path
+                else:
+                    self._emit(
+                        "source",
+                        "Skipping an unusually dense progressive-caption track",
+                        17,
+                    )
+                    continue
             stable_path = self._copy_into_job(
                 path,
                 job_directory,

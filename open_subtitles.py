@@ -37,6 +37,9 @@ _EPISODE_PATTERNS = (
     re.compile(r"(?i)(?<![a-z0-9])s(\d{1,2})[ ._-]*e(\d{1,3})(?!\d)"),
     re.compile(r"(?i)(?<![a-z0-9])(\d{1,2})x(\d{1,3})(?!\d)"),
 )
+_BARE_EPISODE_PATTERN = re.compile(
+    r"(?i)(?<![a-z0-9])-\s*(\d{1,3})(?=$|[ ._\[\](){}-])"
+)
 
 _TITLE_STOPWORDS = {
     "a",
@@ -680,7 +683,7 @@ def _filter_filename_candidates(
     filtered = []
     for candidate in candidates:
         candidate_episode = _candidate_episode_identity(candidate)
-        if source_episode and candidate_episode != source_episode:
+        if _episode_identities_conflict(source_episode, candidate_episode):
             continue
         candidate_year = _candidate_release_year(candidate)
         if source_year and candidate_year and source_year != candidate_year:
@@ -716,7 +719,7 @@ def _filename_match_score(
         return 0.0
     source_episode = _episode_identity(f"{source_text} {Path(video_path).stem}")
     candidate_episode = _candidate_episode_identity(candidate)
-    if source_episode and candidate_episode != source_episode:
+    if _episode_identities_conflict(source_episode, candidate_episode):
         return 0.0
     source_year = _release_year(f"{source_text} {Path(video_path).stem}")
     candidate_year = _candidate_release_year(candidate)
@@ -763,19 +766,22 @@ def _meaningful_title_tokens(text: str) -> set[str]:
     }
 
 
-def _episode_identity(text: str) -> tuple[int, int] | None:
+def _episode_identity(text: str) -> tuple[int | None, int] | None:
     """Return a season/episode pair from common release-name conventions."""
     normalized = unicodedata.normalize("NFKC", text)
     for pattern in _EPISODE_PATTERNS:
         match = pattern.search(normalized)
         if match:
             return int(match.group(1)), int(match.group(2))
+    match = _BARE_EPISODE_PATTERN.search(normalized)
+    if match:
+        return None, int(match.group(1))
     return None
 
 
 def _candidate_episode_identity(
     candidate: SubtitleCandidate,
-) -> tuple[int, int] | None:
+) -> tuple[int | None, int] | None:
     """Prefer structured OpenSubtitles episode metadata over release text."""
     attrs = candidate.source.get("attributes", {})
     feature = attrs.get("feature_details") or {}
@@ -787,6 +793,24 @@ def _candidate_episode_identity(
     except (TypeError, ValueError):
         pass
     return _episode_identity(_candidate_text(candidate))
+
+
+def _episode_identities_conflict(
+    first: tuple[int | None, int] | None,
+    second: tuple[int | None, int] | None,
+) -> bool:
+    """Return whether two known episode identities cannot describe one item."""
+    if first is None or second is None:
+        return False
+    first_season, first_episode = first
+    second_season, second_episode = second
+    if first_episode != second_episode:
+        return True
+    return (
+        first_season is not None
+        and second_season is not None
+        and first_season != second_season
+    )
 
 
 def _release_year(text: str) -> int | None:

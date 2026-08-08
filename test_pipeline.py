@@ -478,16 +478,65 @@ def test_progressive_caption_track_is_rejected() -> tuple[bool, str]:
                 f"{index + 1}\n"
                 f"00:{start // 60000:02d}:{(start // 1000) % 60:02d},{start % 1000:03d} "
                 f"--> 00:{end // 60000:02d}:{(end // 1000) % 60:02d},{end % 1000:03d}\n"
-                "Progressive text\n"
+                f"Progressive text {index}\n"
             )
         path.write_text("\n".join(blocks), encoding="utf-8")
         if not extractor.is_probable_progressive_caption_srt(path):
             return False, "Dense 40 ms cue track was not rejected"
+        collapsed, report = extractor.collapse_repeated_progressive_caption_cues(
+            path,
+            output_directory=tmp,
+        )
+        if report.collapsed_source_cues or report.output_cues != 600:
+            return False, "Unique progressive cues were incorrectly collapsed"
+        if not extractor.is_probable_progressive_caption_srt(collapsed):
+            return False, "Unique progressive track no longer looks progressive"
 
         normal = Path(tmp) / "normal.srt"
         normal.write_text(SYNTHETIC_SRT, encoding="utf-8")
         if extractor.is_probable_progressive_caption_srt(normal):
             return False, "Normal subtitle was incorrectly rejected"
+
+        ass_artifacts = Path(tmp) / "ass-artifacts.srt"
+        blocks = []
+        index = 0
+        for group, count in enumerate((144, 130, 126, 112, 71, 45)):
+            base = group * 10_000
+            for frame in range(count):
+                start = base + frame * 40
+                end = start + 40
+                blocks.append(
+                    f"{index + 1}\n"
+                    f"00:{start // 60000:02d}:{(start // 1000) % 60:02d},{start % 1000:03d} "
+                    f"--> 00:{end // 60000:02d}:{(end // 1000) % 60:02d},{end % 1000:03d}\n"
+                    f"Sign payload {group}\n"
+                )
+                index += 1
+        for offset in range(389):
+            start = 70_000 + offset * 3_000
+            end = start + 1_500
+            blocks.append(
+                f"{index + 1}\n"
+                f"00:{start // 60000:02d}:{(start // 1000) % 60:02d},{start % 1000:03d} "
+                f"--> 00:{end // 60000:02d}:{(end // 1000) % 60:02d},{end % 1000:03d}\n"
+                "Dialogue\n"
+            )
+            index += 1
+        ass_artifacts.write_text("\n".join(blocks), encoding="utf-8")
+        if not extractor.is_probable_progressive_caption_srt(ass_artifacts):
+            return False, "Mixed rapid-fire ASS track was not detected"
+        collapsed, report = extractor.collapse_repeated_progressive_caption_cues(
+            ass_artifacts,
+            output_directory=tmp,
+        )
+        if (
+            report.collapsed_source_cues != 628
+            or report.replacement_cues != 6
+            or report.output_cues != 395
+        ):
+            return False, f"Unexpected progressive collapse report: {report}"
+        if extractor.is_probable_progressive_caption_srt(collapsed):
+            return False, "Collapsed mixed track still looks progressive"
     return True, "Progressive cue-per-word track rejected before translation"
 
 

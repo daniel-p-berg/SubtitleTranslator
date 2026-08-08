@@ -416,19 +416,149 @@ def reference_stream_candidates(
 
 
 def is_probable_progressive_caption_srt(path: str | Path) -> bool:
-    """Detect cue-per-word/karaoke exports that are unsafe to translate."""
+    """Detect cue-per-word or cue-per-frame exports unsafe to translate raw."""
     source = Path(path)
     try:
         cues = subtitle_sync.parse_srt_timings(source)
     except (OSError, ValueError):
         return False
-    if len(cues) < 500:
+    # ASS conversions can contain hundreds of zero-duration drawing or
+    # replacement events alongside ordinary dialogue.  Those events never
+    # remain visible long enough to behave like progressive captions and must
+    # not make a full dialogue track look like a cue-per-word export.
+    visible_durations = [
+        cue.end_ms - cue.start_ms
+        for cue in cues
+        if cue.end_ms > cue.start_ms
+    ]
+    if len(visible_durations) < 500:
         return False
     short_cues = sum(
-        cue.end_ms - cue.start_ms < 250
-        for cue in cues
+        duration_ms < 250
+        for duration_ms in visible_durations
     )
-    return short_cues / len(cues) >= 0.55
+    return short_cues / len(visible_durations) >= 0.55
+
+
+@dataclass(frozen=True)
+class ProgressiveCaptionCollapseReport:
+    """Summary of repeated animation frames collapsed into stable captions."""
+
+    total_cues: int
+    collapsed_source_cues: int
+    replacement_cues: int
+    discarded_empty_cues: int
+    output_cues: int
+
+
+def collapse_repeated_progressive_caption_cues(
+    srt_path: str | Path,
+    *,
+    output_directory: str | Path | None = None,
+) -> tuple[str, ProgressiveCaptionCollapseReport]:
+    """Collapse identical rapid-fire animation frames into stable SRT cues."""
+    source = Path(srt_path).resolve()
+    raw = source.read_text(encoding="utf-8-sig")
+    cues = _parse_structured_srt(raw)
+    timing_line_count = sum(
+        1 for line in raw.splitlines() if _SRT_TIMING_RE.match(line)
+    )
+    if (
+        not cues
+        or timing_line_count <= 0
+        or len(cues) / timing_line_count < 0.95
+    ):
+        return str(source), ProgressiveCaptionCollapseReport(
+            total_cues=timing_line_count,
+            collapsed_source_cues=0,
+            replacement_cues=0,
+            discarded_empty_cues=0,
+            output_cues=timing_line_count,
+        )
+
+    rapid_by_text: defaultdict[tuple[str, ...], list[tuple[int, int]]] = (
+        defaultdict(list)
+    )
+    for cue_index, cue in enumerate(cues):
+        if cue.end_ms - cue.start_ms >= 250:
+            continue
+        text_key = tuple(line.strip() for line in cue.text_lines)
+        if not any(text_key):
+            continue
+        rapid_by_text[text_key].append((cue.start_ms, cue_index))
+
+    collapsible_groups: list[list[int]] = []
+    for occurrences in rapid_by_text.values():
+        clusters: list[list[tuple[int, int]]] = []
+        for item in sorted(occurrences):
+            if not clusters or item[0] - clusters[-1][-1][0] > 1_000:
+                clusters.append([item])
+            else:
+                clusters[-1].append(item)
+        collapsible_groups.extend(
+            [cue_index for _start_ms, cue_index in cluster]
+            for cluster in clusters
+            if len(cluster) >= 10
+        )
+
+    collapsed_indices = {
+        cue_index
+        for group in collapsible_groups
+        for cue_index in group
+    }
+    if not collapsed_indices:
+        return str(source), ProgressiveCaptionCollapseReport(
+            total_cues=timing_line_count,
+            collapsed_source_cues=0,
+            replacement_cues=0,
+            discarded_empty_cues=0,
+            output_cues=timing_line_count,
+        )
+
+    replacements: list[_ParsedSrtCue] = []
+    for group in collapsible_groups:
+        grouped_cues = [cues[index] for index in group]
+        first = min(grouped_cues, key=lambda cue: cue.start_ms)
+        start_ms = min(cue.start_ms for cue in grouped_cues)
+        end_ms = max(cue.end_ms for cue in grouped_cues)
+        replacements.append(
+            _ParsedSrtCue(
+                index=first.index,
+                timing_line=(
+                    f"{_srt_timestamp_from_ms(start_ms)} --> "
+                    f"{_srt_timestamp_from_ms(end_ms)}"
+                ),
+                text_lines=first.text_lines,
+                start_ms=start_ms,
+                end_ms=end_ms,
+            )
+        )
+
+    output_cues = [
+        cue
+        for index, cue in enumerate(cues)
+        if index not in collapsed_indices
+    ]
+    output_cues.extend(replacements)
+    output_cues.sort(key=lambda cue: (cue.start_ms, cue.end_ms, cue.index))
+    discarded_empty = timing_line_count - len(cues)
+    report = ProgressiveCaptionCollapseReport(
+        total_cues=timing_line_count,
+        collapsed_source_cues=len(collapsed_indices),
+        replacement_cues=len(replacements),
+        discarded_empty_cues=discarded_empty,
+        output_cues=len(output_cues),
+    )
+
+    output_dir = (
+        Path(output_directory).expanduser()
+        if output_directory
+        else Path(tempfile.mkdtemp(prefix="subtitle_progressive_collapse_"))
+    )
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_path = output_dir / f"{source.stem}.collapsed.srt"
+    output_path.write_text(_render_srt(output_cues), encoding="utf-8")
+    return str(output_path), report
 
 
 def pick_playback_pgs_stream(
@@ -635,7 +765,7 @@ def find_external_subtitles(
         video_tokens = _title_tokens(video_path.stem)
         subtitle_tokens = _title_tokens(path.stem)
         subtitle_episode = _episode_identity(path.stem)
-        if video_episode and subtitle_episode and video_episode != subtitle_episode:
+        if _episode_identities_conflict(video_episode, subtitle_episode):
             continue
         subtitle_year = _release_year(path.stem)
         if video_year and subtitle_year and video_year != subtitle_year:
@@ -1333,7 +1463,7 @@ def _is_generic_subtitle_name(
     return bool(tokens) and all(token.isdecimal() or token in allowed for token in tokens)
 
 
-def _episode_identity(text: str) -> tuple[int, int] | None:
+def _episode_identity(text: str) -> tuple[int | None, int] | None:
     """Return a season/episode pair from common sidecar naming conventions."""
     normalized = unicodedata.normalize("NFKC", text)
     for pattern in (
@@ -1343,7 +1473,34 @@ def _episode_identity(text: str) -> tuple[int, int] | None:
         match = re.search(pattern, normalized)
         if match:
             return int(match.group(1)), int(match.group(2))
+    # Many anime releases omit the season and use ``Title - 05 [WEB]``.
+    # Preserve the unknown season instead of assuming season one; callers can
+    # still reject a sidecar for a different episode number.
+    match = re.search(
+        r"(?i)(?<![a-z0-9])-\s*(\d{1,3})(?=$|[ ._\[\](){}-])",
+        normalized,
+    )
+    if match:
+        return None, int(match.group(1))
     return None
+
+
+def _episode_identities_conflict(
+    first: tuple[int | None, int] | None,
+    second: tuple[int | None, int] | None,
+) -> bool:
+    """Return whether two known episode identities cannot describe one item."""
+    if first is None or second is None:
+        return False
+    first_season, first_episode = first
+    second_season, second_episode = second
+    if first_episode != second_episode:
+        return True
+    return (
+        first_season is not None
+        and second_season is not None
+        and first_season != second_season
+    )
 
 
 def _release_year(text: str) -> int | None:
@@ -1619,6 +1776,15 @@ def _srt_timestamp_ms(value: str) -> int:
         + int(seconds_text) * 1_000
         + int(milliseconds_text)
     )
+
+
+def _srt_timestamp_from_ms(value: int) -> str:
+    """Format non-negative milliseconds as one canonical SRT timestamp."""
+    value = max(0, int(value))
+    hours, remainder = divmod(value, 3_600_000)
+    minutes, remainder = divmod(remainder, 60_000)
+    seconds, milliseconds = divmod(remainder, 1_000)
+    return f"{hours:02d}:{minutes:02d}:{seconds:02d},{milliseconds:03d}"
 
 
 def _normalized_cue_text(cue: _ParsedSrtCue) -> str:
