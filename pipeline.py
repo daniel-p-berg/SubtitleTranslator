@@ -67,6 +67,7 @@ class PipelineOptions:
     strategy: Strategy = "automatic"
     selected_subtitle_path: str = ""
     selected_candidate: open_subtitles.SubtitleCandidate | None = None
+    selected_search_result: open_subtitles.SubtitleSearchResult | None = None
     media_roots: list[str] = field(default_factory=list)
     workspace_directory: str = ""
     output_mode: str = "alongside"
@@ -601,7 +602,14 @@ class SubtitlePipeline:
             candidates = [
                 item
                 for item in candidates
-                if item.language and item.language.code == preferred_profile.code
+                if (
+                    item.language
+                    and item.language.code == preferred_profile.code
+                )
+                or (
+                    item.language is None
+                    and item.path.stem.casefold() == video.stem.casefold()
+                )
             ]
 
         for candidate in candidates:
@@ -621,6 +629,17 @@ class SubtitlePipeline:
                 job_directory,
                 f"source.{profile.code}.srt",
             )
+            if (
+                preferred != "auto"
+                and candidate.language is None
+                and candidate.path.stem.casefold() == video.stem.casefold()
+            ):
+                return _Reference(
+                    normalized,
+                    profile.code,
+                    f"same-name sidecar {candidate.path.name}",
+                    False,
+                )
             checked = self._validate_external_reference(
                 video,
                 normalized,
@@ -656,6 +675,7 @@ class SubtitlePipeline:
             return _Target(normalized, "selected file", False)
 
         if options.selected_candidate:
+            selected_search_result = options.selected_search_result
             self._record_candidate(
                 options.selected_candidate,
                 decision="selected by user",
@@ -684,7 +704,13 @@ class SubtitlePipeline:
                 normalized,
                 "reviewed OpenSubtitles result",
                 False,
+                (
+                    selected_search_result.candidates
+                    if selected_search_result
+                    else ()
+                ),
                 candidate_id=options.selected_candidate.file_id,
+                search_result=selected_search_result,
             )
 
         if options.strategy != "translate":

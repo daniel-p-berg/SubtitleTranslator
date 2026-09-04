@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.9.0-beta.17
+
+- Automatically resumes subtitle preparation after a manual OpenSubtitles
+  result is selected.
+- Preserves the reviewed result list and rejection details when a selected
+  subtitle fails timing validation.
+- Treats an unlabeled, same-basename sidecar as the explicitly selected source
+  language, allowing strong subtitle-to-subtitle timing validation instead of
+  relying on coarse audio activity.
+
 ## 0.9.0-beta.16
 
 - Passes the selected 0-100 subtitle positions directly to mpv without

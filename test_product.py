@@ -844,6 +844,46 @@ class DependencySetupTests(unittest.TestCase):
 
 
 class MediaDiscoveryTests(unittest.TestCase):
+    def test_explicit_source_accepts_unlabeled_same_basename_sidecar(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            video = root / "Movie.2026.mkv"
+            subtitle = root / "Movie.2026.srt"
+            video.write_bytes(b"media")
+            subtitle.write_text(SRT, encoding="utf-8")
+            options = pipeline.PipelineOptions(
+                video_path=str(video),
+                target_language="vi",
+                source_language="en",
+            )
+            worker = pipeline.SubtitlePipeline()
+
+            with (
+                mock.patch.object(
+                    worker,
+                    "_normalize_subtitle",
+                    return_value=str(subtitle),
+                ),
+                mock.patch.object(
+                    worker,
+                    "_validate_external_reference",
+                ) as validate,
+            ):
+                reference = worker._resolve_reference(
+                    video,
+                    [],
+                    options,
+                    root,
+                )
+
+        self.assertIsNotNone(reference)
+        self.assertEqual(reference.path, str(subtitle))
+        self.assertEqual(reference.language_code, "en")
+        self.assertIn("same-name sidecar", reference.label)
+        validate.assert_not_called()
+
     def test_remembered_merged_output_survives_restart_and_is_launchable(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -1172,6 +1212,85 @@ class ApiAndTranslationTests(unittest.TestCase):
 
         self.assertEqual(target.origin, "translation")
         translate.assert_called_once()
+
+    def test_selected_candidate_preserves_review_results_for_timing_retry(
+        self,
+    ) -> None:
+        first = self._candidate(10)
+        second = self._candidate(20)
+        search_result = open_subtitles.SubtitleSearchResult(
+            query="Movie 2026",
+            candidates=(first, second),
+            automatic_matches=(),
+            matched_by_hash=False,
+        )
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            video = root / "Movie.mkv"
+            downloaded = root / "downloaded.srt"
+            video.write_bytes(b"media")
+            downloaded.write_text(TRANSLATED_SRT, encoding="utf-8")
+            options = pipeline.PipelineOptions(
+                video_path=str(video),
+                target_language="vi",
+                strategy="find",
+                selected_candidate=first,
+                selected_search_result=search_result,
+                opensubtitles_api_key="search-key",
+            )
+            worker = pipeline.SubtitlePipeline()
+
+            with (
+                mock.patch.object(
+                    open_subtitles,
+                    "download_subtitle",
+                    return_value=str(downloaded),
+                ),
+                mock.patch.object(
+                    worker,
+                    "_normalize_subtitle",
+                    return_value=str(downloaded),
+                ),
+            ):
+                target = worker._resolve_target(
+                    video,
+                    [],
+                    None,
+                    options,
+                    root,
+                )
+
+        self.assertEqual(target.candidate_id, first.file_id)
+        self.assertEqual(target.candidates, (first, second))
+        self.assertIs(target.search_result, search_result)
+
+    def test_candidate_choice_queues_pipeline_with_full_search_context(
+        self,
+    ) -> None:
+        import ui
+
+        candidate = self._candidate(10)
+        search_result = open_subtitles.SubtitleSearchResult(
+            query="Movie",
+            candidates=(candidate,),
+            automatic_matches=(),
+            matched_by_hash=False,
+        )
+        window = SimpleNamespace(
+            selected_candidate=None,
+            selected_search_result=None,
+            selected_subtitle_path="old.srt",
+            sidecar_label=mock.Mock(),
+            _update_cost_estimate=mock.Mock(),
+            _queue_pipeline_after_review=mock.Mock(),
+        )
+
+        ui.MainWindow._candidate_selected(window, candidate, search_result)
+
+        self.assertIs(window.selected_candidate, candidate)
+        self.assertIs(window.selected_search_result, search_result)
+        self.assertEqual(window.selected_subtitle_path, "")
+        window._queue_pipeline_after_review.assert_called_once_with()
 
     def test_automatic_mode_keeps_clear_error_when_review_has_no_actions(
         self,

@@ -921,7 +921,7 @@ class PipelineThread(QThread):
 class CandidateDialog(QDialog):
     """Manual OpenSubtitles result review with editable search terms."""
 
-    candidate_chosen = Signal(object)
+    candidate_chosen = Signal(object, object)
     translation_requested = Signal()
 
     def __init__(
@@ -941,6 +941,7 @@ class CandidateDialog(QDialog):
         self.video_path = video_path
         self.target_language = target_language
         self._candidates: list[open_subtitles.SubtitleCandidate] = []
+        self._result: open_subtitles.SubtitleSearchResult | None = None
         self._thread: FunctionThread | None = None
         self._cancellation_token: CancellationToken | None = None
         self.allow_translation = allow_translation
@@ -1116,6 +1117,7 @@ class CandidateDialog(QDialog):
     def _populate(self, result: open_subtitles.SubtitleSearchResult) -> None:
         self.search_button.setEnabled(bool(self.api_key))
         self.query.setText(result.query)
+        self._result = result
         self._candidates = list(result.candidates)
         self.table.setRowCount(len(self._candidates))
         automatic_ids = {item.file_id for item in result.automatic_matches}
@@ -1200,7 +1202,7 @@ class CandidateDialog(QDialog):
         row = self.table.currentRow()
         if not 0 <= row < len(self._candidates):
             return
-        self.candidate_chosen.emit(self._candidates[row])
+        self.candidate_chosen.emit(self._candidates[row], self._result)
         self.accept()
 
     def _translate(self) -> None:
@@ -2300,6 +2302,7 @@ class MainWindow(QMainWindow):
         self.video_path = ""
         self.selected_subtitle_path = ""
         self.selected_candidate: open_subtitles.SubtitleCandidate | None = None
+        self.selected_search_result: open_subtitles.SubtitleSearchResult | None = None
         self.last_result: pipeline.PipelineResult | None = None
         self.last_diagnostics: dict[str, Any] = {}
         self._media_duration_seconds = 0.0
@@ -2309,6 +2312,8 @@ class MainWindow(QMainWindow):
         self._recent_worker: FunctionThread | None = None
         self._inspection_generation = 0
         self._candidate_dialog: CandidateDialog | None = None
+        self._pending_pipeline_restart = False
+        self._pending_pipeline_strategy: pipeline.Strategy | None = None
         detected_first_run = (
             not settings.SETTINGS_PATH.exists()
             and os.environ.get("SUBTITLE_TRANSLATOR_SMOKE_TEST") != "1"
@@ -3034,6 +3039,8 @@ class MainWindow(QMainWindow):
             self._inspection_worker = None
         if worker is self._pipeline_worker:
             self._pipeline_worker = None
+            if self._pending_pipeline_restart:
+                QTimer.singleShot(0, self._resume_pipeline_after_review)
         if worker is self._recent_worker:
             self._recent_worker = None
         worker.deleteLater()
@@ -3066,6 +3073,7 @@ class MainWindow(QMainWindow):
         self._media_duration_seconds = 0.0
         self.selected_subtitle_path = ""
         self.selected_candidate = None
+        self.selected_search_result = None
         self.sidecar_label.setText(tr("Target subtitle: automatic"))
         self.drop_frame.set_media(self.video_path)
         self.primary_button.setEnabled(False)
@@ -3184,6 +3192,7 @@ class MainWindow(QMainWindow):
         if path:
             self.selected_subtitle_path = path
             self.selected_candidate = None
+            self.selected_search_result = None
             self.sidecar_label.setText(
                 tr("Target subtitle: {name}").format(name=Path(path).name)
             )
@@ -3192,6 +3201,7 @@ class MainWindow(QMainWindow):
     def _clear_sidecar(self) -> None:
         self.selected_subtitle_path = ""
         self.selected_candidate = None
+        self.selected_search_result = None
         self.sidecar_label.setText(tr("Target subtitle: automatic"))
         self._update_cost_estimate()
 
@@ -3273,6 +3283,7 @@ class MainWindow(QMainWindow):
             strategy=method,
             selected_subtitle_path=self.selected_subtitle_path,
             selected_candidate=self.selected_candidate,
+            selected_search_result=self.selected_search_result,
             media_roots=list(self.preferences["media_locations"]),
             workspace_directory=self.preferences["workspace_directory"],
             output_mode=self.preferences["output_mode"],
@@ -3313,6 +3324,7 @@ class MainWindow(QMainWindow):
         self.last_diagnostics = result.diagnostics
         self.export_diagnostics_button.setEnabled(bool(self.last_diagnostics))
         self.selected_candidate = None
+        self.selected_search_result = None
         self.status_label.setText(tr("Completed successfully"))
         self.status_label.setStyleSheet(f"color: {SUCCESS}; font-weight: 600;")
         output = result.merged_path or result.subtitle_path
@@ -3439,24 +3451,44 @@ class MainWindow(QMainWindow):
     def _candidate_selected(
         self,
         candidate: open_subtitles.SubtitleCandidate,
+        result: open_subtitles.SubtitleSearchResult | None,
     ) -> None:
         self.selected_candidate = candidate
+        self.selected_search_result = result
         self.selected_subtitle_path = ""
         name = candidate.release_name or candidate.file_name
         self.sidecar_label.setText(
             tr("Target subtitle: {name}").format(name=name)
         )
         self._update_cost_estimate()
+        self._queue_pipeline_after_review()
 
     def _translate_after_review(self) -> None:
         self.selected_candidate = None
+        self.selected_search_result = None
         self.selected_subtitle_path = ""
         self.sidecar_label.setText(tr("Target subtitle: automatic"))
         self._append_detail("TRANSLATE  Approved after subtitle review")
-        QTimer.singleShot(
-            0,
-            lambda: self._start_pipeline_for_strategy("translate"),
-        )
+        self._queue_pipeline_after_review("translate")
+
+    def _queue_pipeline_after_review(
+        self,
+        strategy: pipeline.Strategy | None = None,
+    ) -> None:
+        self._pending_pipeline_restart = True
+        self._pending_pipeline_strategy = strategy
+        QTimer.singleShot(0, self._resume_pipeline_after_review)
+
+    def _resume_pipeline_after_review(self) -> None:
+        worker = self._pipeline_worker
+        if worker and worker.isRunning():
+            return
+        if not self._pending_pipeline_restart:
+            return
+        strategy = self._pending_pipeline_strategy
+        self._pending_pipeline_restart = False
+        self._pending_pipeline_strategy = None
+        self._start_pipeline_for_strategy(strategy)
 
     def _translation_review_summary(self) -> str:
         model = str(self.model_combo.currentData() or "")
